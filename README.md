@@ -27,11 +27,18 @@ A plataforma tem como objetivo facilitar o contato entre alunos (ou responsávei
 
 ---
 
+## Integrantes
+
+* Erivaldo Gelson da Rocha João
+* Mariane da Silva Souza
+
 ## 🛠️ Tecnologias Utilizadas
 
 - **HTML5** – Estrutura do site  
 - **CSS3** – Estilização e layout  
-- **JavaScript** – Interatividade básica  
+- **JavaScript** – Interatividade básica
+- **React Native** – Desenvolvimento de aplicações móveis multiplataforma  
+- **Bootstrap** – Framework CSS para criação de interfaces responsivas  
 - **GitHub** – Versionamento e documentação  
 
 ---
