@@ -1,0 +1,95 @@
+:root {
+  --marrom-escuro: #3b1f1f;
+  --marrom-medio: #6b3f2a;
+  --marrom-claro: #c4a484;
+  --bege-papel: #efe6d8;
+  --lilas: #d6a9e5;
+  --branco: #ffffff;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  background-color: var(--marrom-escuro);
+}
+
+.login-bg {
+  min-height: 100vh;
+  background-color: var(--marrom-escuro);
+  background-image: url("assets/mapa-base.png");
+  background-repeat: no-repeat;
+  background-position: bottom center;
+  background-size: cover;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Papel rasgado topo */
+.papel-topo {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 180px;
+  background: url("assets/papel-topo.png") no-repeat top center;
+  background-size: cover;
+  z-index: 1;
+}
+
+/* Overlay escuro */
+.login-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(59, 31, 31, 0.75);
+  z-index: 0;
+}
+
+/* Conteúdo */
+.content {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 20px;
+  background-color: var(--branco);
+}
+
+/* Botão */
+.btn-custom {
+  background-color: var(--marrom-claro);
+  color: var(--marrom-escuro);
+  border-radius: 50px;
+  font-weight: 600;
+  padding: 12px 0;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.btn-custom:hover {
+  background-color: var(--bege-papel);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  transform: translateY(-2px);
+}
+
+/* Ícone senha */
+.toggle-password {
+  cursor: pointer;
+  background-color: var(--bege-papel);
+  border: none;
+}
+
+.toggle-password i {
+  font-size: 1.2rem;
+  color: var(--marrom-medio);
+}
+
+.toggle-password:hover i {
+  color: var(--marrom-escuro);
+}
+
+
+
