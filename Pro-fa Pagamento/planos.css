@@ -1,0 +1,60 @@
+:root {
+  --beige: #e6d8b8;
+}
+
+body {
+  background: #fafafa;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.plan-card {
+  background: #fff;
+  border-radius: 22px;
+  padding: 30px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  transition: all 0.35s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+/* 🔥 Animação ao passar o mouse */
+.plan-card:hover {
+  transform: translateY(-12px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+
+.plan-card li {
+  margin-bottom: 10px;
+}
+
+.btn-plan {
+  background: var(--beige);
+  border: none;
+  border-radius: 30px;
+  padding: 12px;
+  font-weight: 600;
+  width: 100%;
+  transition: all 0.3s ease;
+}
+
+.btn-plan:hover {
+  background: #d8caa6;
+  transform: scale(1.05);
+}
+
+.destaque {
+  border: 2px solid var(--beige);
+}
+
+.badge-highlight {
+  position: absolute;
+  top: -12px;
+  right: 20px;
+  background: #000;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+}
+
+
