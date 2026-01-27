@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Planos de Aulas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <link rel="stylesheet" href="planos.css">
+</head>
+
+<body>
+
+<main class="container py-5">
+
+  <div class="text-center mb-5">
+    <h1 class="fw-bold">Escolha seu plano de estudos</h1>
+    <p class="text-muted">Selecione a matéria e o plano desejado</p>
+  </div>
+
+  <!-- 🔹 CATEGORIA: PORTUGUÊS -->
+  <section class="mb-5">
+    <h2 class="categoria-titulo mb-4">📘 Português</h2>
+
+    <div class="row g-4">
+
+      <!-- Fundamental -->
+      <div class="col-md-4">
+        <div class="plan-card text-center">
+          <span class="badge-highlight">Acompanhamento</span>
+          <h3>Acompanhamento Escolar</h3>
+          <p class="text-muted">Ensino Fundamental</p>
+          
+
+          <div class="plan-price">R$ 50,00 <span>/mês</span></div>
+          <small class="text-muted">
+            R$ 55,00 /aula (acima de 6 meses)
+          </small>
+
+          <ul class="list-unstyled mt-4">
+            <li>✔ 1 aula semanal de 1 hora</li>
+            <li>✔ Material complementar</li>
+            <li>✔ Exercícios por aula</li>
+            <li>✔ Acesso ao site</li>
+          </ul>
+
+          <button class="btn btn-plan mt-4"
+            data-materia="Português"
+            data-plano="Ensino Fundamental">
+            Escolher plano
+          </button>
+        </div>
+      </div>
+
+      <!-- Ensino Médio -->
+      <div class="col-md-4">
+        <div class="plan-card text-center destaque">
+          <span class="badge-highlight">Acompanhamento</span>
+
+          <h3>Acompanhamento Escolar</h3>
+          <p class="text-muted">Ensino Médio</p>
+
+          <div class="plan-price">R$ 60,00 <span>/mês</span></div>
+          <small class="text-muted">
+            R$ 65,00 /aula (acima de 6 meses)
+          </small>
+
+          <ul class="list-unstyled mt-4">
+            <li>✔ 1 aula semanal de 1 hora</li>
+            <li>✔ Material complementar</li>
+            <li>✔ Exercícios por aula</li>
+            <li>✔ Acesso ao site</li>
+          </ul>
+
+          <button class="btn btn-plan mt-4"
+            data-materia="Português"
+            data-plano="Ensino Médio">
+            Escolher plano
+          </button>
+        </div>
+      </div>
+
+      <!-- Aula Avulsa -->
+      <div class="col-md-4">
+        <div class="plan-card text-center">
+          <h3>Aula Avulsa</h3>
+          <p class="text-muted">Português</p>
+
+          <div class="plan-price">R$ 90,00</div>
+
+          <ul class="list-unstyled mt-4">
+            <li>✔ 1 aula de 1 hora</li>
+            <li>✔ Material complementar</li>
+            <li>✔ Exercícios</li>
+          </ul>
+
+          <button class="btn btn-plan mt-4"
+            data-materia="Português"
+            data-plano="Aula Avulsa">
+            Escolher plano
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+<!-- 🔹 CATEGORIA: HISTÓRIA -->
+<section>
+  <h2 class="categoria-titulo mb-4">📜 História</h2>
+
+  <div class="row g-4">
+
+    <!-- História - Aula Avulsa -->
+    <div class="col-md-4">
+      <div class="plan-card text-center">
+        <h3>Aula Avulsa</h3>
+        <p class="text-muted">História</p>
+
+        <div class="plan-price">R$ 100,00</div>
+
+        <ul class="list-unstyled mt-4">
+          <li>✔ 1 aula de 1 hora</li>
+          <li>✔ Material complementar da aula</li>
+          <li>✔ Exercícios da aula</li>
+        </ul>
+
+        <button class="btn btn-plan mt-4"
+          data-materia="História"
+          data-plano="Aula Avulsa">
+          Escolher plano
+        </button>
+      </div>
+    </div>
+
+    <!-- História - Acompanhamento Ensino Médio -->
+    <div class="col-md-4">
+      <div class="plan-card text-center destaque">
+        <span class="badge-highlight">Acompanhamento</span>
+
+        <h3>Acompanhamento Escolar</h3>
+        <p class="text-muted">História – Ensino Médio</p>
+
+        <div class="plan-price">
+          R$ 75,00 <span>/aula (até 6 meses)</span><br>
+          <small class="text-muted">
+            R$ 70,00 /aula (acima de 6 meses)
+          </small>
+        </div>
+
+        <ul class="list-unstyled mt-4">
+          <li>✔ 1 aula semanal de 1 hora</li>
+          <li>✔ Material complementar por aula</li>
+          <li>✔ Exercícios por aula</li>
+          <li>✔ Acesso ao site com materiais extras</li>
+          <li>✔ Tempo: ano escolar (a combinar)</li>
+        </ul>
+
+        <button class="btn btn-plan mt-4"
+          data-materia="História"
+          data-plano="Acompanhamento Escolar – Ensino Médio">
+          Escolher plano
+        </button>
+      </div>
+    </div>
+
+    <!-- História - Acompanhamento Ensino Fundamental -->
+    <div class="col-md-4">
+      <div class="plan-card text-center">
+        <span class="badge-highlight">Acompanhamento</span>
+
+        <h3>Acompanhamento Escolar</h3>
+        <p class="text-muted">História – Ensino Fundamental</p>
+
+        <div class="plan-price">
+          R$ 65,00 <span>/aula (até 6 meses)</span><br>
+          <small class="text-muted">
+            R$ 60,00 /aula (acima de 6 meses)
+          </small>
+        </div>
+
+        <ul class="list-unstyled mt-4">
+          <li>✔ 1 aula semanal de 1 hora</li>
+          <li>✔ Material complementar por aula</li>
+          <li>✔ Exercícios por aula</li>
+          <li>✔ Acesso ao site com materiais extras</li>
+          <li>✔ Tempo: ano escolar (a combinar)</li>
+        </ul>
+
+        <button class="btn btn-plan mt-4"
+          data-materia="História"
+          data-plano="Acompanhamento Escolar – Ensino Fundamental">
+          Escolher plano
+        </button>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+    <!-- História - Acompanhamento Ensino Médio -->
+     <section>
+  <h2 class="categoria-titulo mb-4">📜 História</h2>
+
+  <div class="row g-4">
+
+    <!-- História - Aula Avulsa -->
+    <div class="col-md-4">
+      <div class="plan-card text-center">
+        <h3>Plano destravar o espanhol: básico ao intermediário</h3>
+        <p class="text-muted">Espanhol</p>
+
+        <div class="plan-price">R$ 40 por aula efetiva</div>
+        <small class="text-muted">
+            R$ 30,00 /Taxa de Inscrição
+          </small>
+
+        <ul class="list-unstyled mt-4">
+          <li>✔ 1 aula semanal de 1 hora:</li>
+          <li>✔ Material complementar por aula</li>
+          <li>✔ Exercícios por aula</li>
+          <li>Acesso ao site com materiais extras para estudo</li>
+        </ul>
+
+        <button class="btn btn-plan mt-4"
+          data-materia="Espanhol"
+          data-plano="Plano destravar o espanhol: básico ao intermediário 😎">
+          Escolher plano
+        </button>
+      </div>
+    </div>
+
+    <!-- Espanhol - Acompanhamento -->
+    <div class="col-md-4">
+      <div class="plan-card text-center destaque">
+        <span class="badge-highlight">Acompanhamento</span>
+
+        <h3>Plano começar a falar - básico (A1 ao A2) Inclui:</h3>
+        <p class="text-muted">Espanhol – básico</p>
+
+        <div class="plan-price">
+          R$ 45 <span>/aula (Aulas efetivas)</span><br>
+          <small class="text-muted">
+            R$ 30,00 /Taxa de Inscrição
+          </small>
+        </div>
+
+        <ul class="list-unstyled mt-4">
+          <li>✔ 1 aula semanal de 1 hora</li>
+          <li>✔ Material complementar por aula</li>
+          <li>✔ Exercícios por aula</li>
+          <li>✔ Acesso ao site com materiais extras</li>
+          <li>✔ Tempo: ano escolar (a combinar)</li>
+        </ul>
+
+        <button class="btn btn-plan mt-4"
+          data-materia="Espanhol"
+          data-plano="Espanhol – básico 💭">
+          Escolher plano
+        </button>
+      </div>
+    </div>
+
+    <!-- História - Acompanhamento Ensino Fundamental -->
+    <div class="col-md-4">
+      <div class="plan-card text-center">
+        <span class="badge-highlight">Acompanhamento</span>
+
+        <h3>Plano Progressivo (básico ao avançado)</h3>
+        <p class="text-muted">Espanhol avançado intermédiario</p>
+
+        <div class="plan-price">
+          R$ 35,00 <span>/aula (até 6 meses)</span><br>
+          <small class="text-muted">
+            R$ 30,00 /Taxa de Inscrição
+          </small>
+        </div>
+
+        <ul class="list-unstyled mt-4">
+          <li>✔ 1 aula semanal de 1 hora:</li>
+          <li>✔ Material complementar por aula</li>
+          <li>✔ Exercícios por Aula</li>
+          <li>✔ Acesso ao site com materiais extras para estudo</li>
+          <li>✔ Tempo: ano escolar (a combinar)</li>
+        </ul>
+
+        <button class="btn btn-plan mt-4"
+          data-materia="Espanhol"
+          data-plano="Espanhol avançado intermédiario 🤠">
+          Escolher plano
+        </button>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+    
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</main>
+
+<script src="planos.js"></script>
+</body>
+</html>
+
+
+
+
