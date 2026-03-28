@@ -1,0 +1,19 @@
+{
+  "name": "profa-da-silva-auth",
+  "version": "1.0.0",
+  "description": "Tela de login e cadastro com backend para o projeto Profª Da Silva.",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "passport": "^0.7.0",
+    "passport-apple": "^2.0.2",
+    "passport-google-oauth20": "^2.0.0"
+  }
+}

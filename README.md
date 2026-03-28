@@ -56,3 +56,21 @@ ProfadaSilva/
 │   └── images/
 └── README.md
 
+## 🔐 Nova área de autenticação
+
+Foi adicionada uma estrutura de login e cadastro com:
+
+- tela moderna em `backend/public/login.html`
+- backend em Node.js/Express em `backend/server.js`
+- cadastro e login com e-mail e senha
+- suporte preparado para login com Google e Apple
+
+### Como executar
+
+1. Instale as dependências com `npm install`
+2. Copie `.env.example` para `.env`
+3. Preencha as credenciais do Google e da Apple
+4. Inicie com `npm start`
+5. Acesse `http://localhost:3000`
+
+Os usuários cadastrados localmente ficam em `backend/data/users.json`.
