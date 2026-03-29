@@ -3,6 +3,8 @@
   --beige-strong: #d7c6a0;
   --ink: #181818;
   --muted: #6f675a;
+  --white: #ffffff;
+  --line: rgba(24, 24, 24, 0.12);
 }
 
 * {
@@ -17,12 +19,16 @@ body {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin: 26px 0 18px;
   padding: 8px;
   background: #f4efe5;
   border-radius: 20px;
+}
+
+.tabs-two {
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .tab {
@@ -63,6 +69,66 @@ body {
 
 .auth-form.is-visible {
   display: block;
+}
+
+.auth-otp-form {
+  display: none;
+}
+
+.otp-intro {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #fcf9f2;
+  border: 1px solid rgba(24, 24, 24, 0.08);
+}
+
+.otp-control {
+  text-align: center;
+  letter-spacing: 0.5rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.otp-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.otp-resend-link {
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.otp-resend-link:hover,
+.otp-resend-link:focus {
+  color: var(--muted);
+  text-decoration: underline;
+}
+
+.auth-helper-links {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.auth-inline-link {
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-inline-link:hover,
+.auth-inline-link:focus {
+  color: var(--muted);
+  text-decoration: underline;
+}
+
+.auth-hidden {
+  display: none !important;
 }
 
 .auth-control {

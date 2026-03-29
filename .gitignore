@@ -2,3 +2,6 @@ node_modules/
 .env
 backend/keys/
 backend/data/*.db
+server.log
+server.err.log
+backend/python/__pycache__/
