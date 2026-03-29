@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | Profª Da Silva</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body>
+  <main class="container py-5">
+    <div class="text-center mb-5 auth-header">
+      <h1 class="fw-bold">Acesso do aluno</h1>
+      <p class="text-muted mb-0">Entre com e-mail ou faça seu cadastro para acompanhar as aulas.</p>
+    </div>
+
+    <div class="row g-4 justify-content-center align-items-start">
+      <div class="col-lg-5">
+        <section class="plan-card auth-info-card">
+          <span class="badge-highlight">Profª Da Silva</span>
+          <h2 class="categoria-titulo mb-4">Bem-vindo(a)</h2>
+
+          <ul class="list-unstyled auth-benefits mb-0">
+            <li><i class="bi bi-check-circle-fill"></i> Código por e-mail no login e no cadastro</li>
+            <li><i class="bi bi-check-circle-fill"></i> Campo de telefone direto no cadastro</li>
+            <li><i class="bi bi-check-circle-fill"></i> Redirecionamento para a página de pagamento após confirmação</li>
+            <li><i class="bi bi-check-circle-fill"></i> Login com Google disponível quando configurado</li>
+          </ul>
+        </section>
+      </div>
+
+      <div class="col-lg-5">
+        <section class="plan-card auth-panel">
+          <div class="tabs tabs-two mb-4" role="tablist" aria-label="Alternar entre login e cadastro">
+            <button class="tab is-active" type="button" data-mode="login">Login</button>
+            <button class="tab" type="button" data-mode="register">Cadastro</button>
+          </div>
+
+          <div id="feedback" class="feedback" aria-live="polite"></div>
+
+          <form id="login-form" class="auth-form is-visible">
+            <div class="mb-3">
+              <label class="form-label">E-mail</label>
+              <input class="form-control auth-control" type="email" name="email" placeholder="voce@exemplo.com" required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Senha</label>
+              <input class="form-control auth-control" type="password" name="password" placeholder="Digite sua senha" required>
+            </div>
+
+            <div class="auth-helper-links mb-3">
+              <button id="forgot-password-link" class="btn btn-link auth-inline-link" type="button">
+                Esqueci a minha senha
+              </button>
+            </div>
+
+            <button class="btn btn-plan w-100" type="submit">Login</button>
+          </form>
+
+          <form id="forgot-form" class="auth-form">
+            <div class="otp-intro mb-3">
+              <p class="mb-1 fw-semibold">Recuperar senha</p>
+              <p class="text-muted mb-0">
+                Informe seu número de telefone para receber um código de confirmação e criar uma nova senha.
+              </p>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Número de telefone</label>
+              <input class="form-control auth-control" type="tel" name="phoneNumber" placeholder="+55 11 99999-9999" required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Receber código por</label>
+              <select class="form-select auth-control" name="verificationChannel">
+                <option value="sms">SMS / RCS</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
+            </div>
+
+            <button class="btn btn-plan w-100 mb-2" type="submit">Enviar código</button>
+            <button id="forgot-back" class="btn btn-outline-dark w-100 rounded-pill" type="button">
+              Voltar para login
+            </button>
+          </form>
+
+          <form id="register-form" class="auth-form">
+            <div class="mb-3">
+              <label class="form-label">Nome completo</label>
+              <input class="form-control auth-control" type="text" name="name" placeholder="Seu nome" required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">E-mail</label>
+              <input class="form-control auth-control" type="email" name="email" placeholder="voce@exemplo.com" required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Telefone</label>
+              <input class="form-control auth-control" type="tel" name="phoneNumber" placeholder="+55 11 99999-9999">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Senha</label>
+              <input class="form-control auth-control" type="password" name="password" placeholder="Crie uma senha" minlength="6" required>
+            </div>
+
+            <button class="btn btn-plan w-100" type="submit">Cadastrar</button>
+          </form>
+
+          <form id="otp-form" class="auth-form auth-otp-form">
+            <div class="otp-intro mb-3">
+              <p id="otp-title" class="mb-1 fw-semibold">Confirme seu código</p>
+              <p id="otp-subtitle" class="text-muted mb-0">
+                Digite o código enviado para o seu canal de autenticação.
+              </p>
+            </div>
+
+            <input id="otp-purpose" type="hidden" name="purpose">
+            <input id="otp-email" type="hidden" name="email">
+            <input id="otp-phone" type="hidden" name="phoneNumber">
+
+            <div class="mb-3">
+              <label class="form-label">Código de confirmação</label>
+              <input
+                id="otp-code"
+                class="form-control auth-control otp-control"
+                type="text"
+                name="code"
+                inputmode="numeric"
+                maxlength="6"
+                placeholder="000000"
+                required
+              >
+            </div>
+
+            <div class="otp-actions mb-3">
+              <button id="otp-resend" class="btn btn-link otp-resend-link" type="button">
+                Enviar novamente
+              </button>
+            </div>
+
+            <button class="btn btn-plan w-100 mb-2" type="submit">Confirmar código</button>
+            <button id="otp-back" class="btn btn-outline-dark w-100 rounded-pill" type="button">
+              Voltar
+            </button>
+          </form>
+
+          <div id="social-divider" class="divider">
+            <span>ou continue com</span>
+          </div>
+
+          <div id="social-section" class="row g-3">
+            <div class="col-12">
+              <a id="google-auth" class="btn social-btn w-100" href="/auth/google">
+                <i class="bi bi-google"></i>
+                Google
+              </a>
+            </div>
+          </div>
+
+          <section id="session-card" class="session-card" hidden>
+            <p class="session-label">Sessão ativa</p>
+            <h3 id="session-name" class="h4 mb-1"></h3>
+            <p id="session-email" class="text-muted mb-1"></p>
+            <p id="session-phone" class="text-muted mb-3"></p>
+            <button id="logout-btn" class="btn btn-dark rounded-pill px-4" type="button">Sair</button>
+          </section>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="auth.js"></script>
+</body>
+</html>
