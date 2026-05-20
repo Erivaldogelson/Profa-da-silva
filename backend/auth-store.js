@@ -1,26 +1,11 @@
-const fs = require("fs");
 const path = require("path");
+const { execFileSync } = require("child_process");
 
-const dataDir = path.join(__dirname, "data");
-const dataFile = path.join(dataDir, "users.json");
-
-function ensureStore() {
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-
-  if (!fs.existsSync(dataFile)) {
-    fs.writeFileSync(
-      dataFile,
-      JSON.stringify({ users: [], verifications: [] }, null, 2)
-    );
-  }
-}
-
-function writeStore(data) {
-  ensureStore();
-  fs.writeFileSync(dataFile, JSON.stringify(data, null, 2));
-}
+const authDbScript = path.join(__dirname, "python", "auth_db.py");
+const pythonEnv = {
+  ...process.env,
+  PYTHONIOENCODING: "utf-8",
+};
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -36,122 +21,82 @@ function normalizePhone(phoneNumber) {
   return cleaned.startsWith("+") ? cleaned : `+${cleaned}`;
 }
 
-function readStore() {
-  ensureStore();
-  const raw = JSON.parse(fs.readFileSync(dataFile, "utf8"));
-  const data = {
-    users: Array.isArray(raw.users) ? raw.users : [],
-    verifications: Array.isArray(raw.verifications) ? raw.verifications : [],
-  };
-
-  const now = Date.now();
-  const validVerifications = data.verifications.filter((item) => {
-    return new Date(item.expiresAt).getTime() > now;
+function runAuthDb(action, payload = {}) {
+  const output = execFileSync("python", [authDbScript, action], {
+    input: JSON.stringify(payload),
+    encoding: "utf8",
+    env: pythonEnv,
   });
+  const parsed = JSON.parse(output || "{}");
 
-  if (validVerifications.length !== data.verifications.length) {
-    data.verifications = validVerifications;
-    writeStore(data);
+  if (!parsed.ok) {
+    throw new Error(parsed.message || "Falha ao acessar o banco de login.");
   }
 
-  return data;
-}
-
-function findUserByEmail(email) {
-  const db = readStore();
-  return db.users.find((user) => user.email === normalizeEmail(email)) || null;
-}
-
-function findUserByPhone(phoneNumber) {
-  const db = readStore();
-  return (
-    db.users.find((user) => user.phoneNumber === normalizePhone(phoneNumber)) ||
-    null
-  );
-}
-
-function findUserById(id) {
-  const db = readStore();
-  return db.users.find((user) => user.id === id) || null;
-}
-
-function findUserByProvider(provider, providerId) {
-  const db = readStore();
-  return (
-    db.users.find(
-      (user) =>
-        Array.isArray(user.providers) &&
-        user.providers.some(
-          (entry) =>
-            entry.provider === provider && entry.providerId === providerId
-        )
-    ) || null
-  );
+  return parsed.data || null;
 }
 
 function createUser(user) {
-  const db = readStore();
-  db.users.push(user);
-  writeStore(db);
-  return user;
+  return runAuthDb("create-user", user);
 }
 
 function updateUser(updatedUser) {
-  const db = readStore();
-  const index = db.users.findIndex((user) => user.id === updatedUser.id);
+  return runAuthDb("update-user", updatedUser);
+}
 
-  if (index === -1) {
-    return null;
-  }
+function findUserByEmail(email) {
+  return runAuthDb("find-user-by-email", { email });
+}
 
-  db.users[index] = updatedUser;
-  writeStore(db);
-  return updatedUser;
+function findUserByPhone(phoneNumber) {
+  return runAuthDb("find-user-by-phone", { phoneNumber });
+}
+
+function findUserById(id) {
+  return runAuthDb("find-user-by-id", { id });
+}
+
+function findUserByProvider(provider, providerId) {
+  return runAuthDb("find-user-by-provider", { provider, providerId });
+}
+
+function listUsers(accessStatus = "") {
+  return runAuthDb("list-users", { accessStatus });
+}
+
+function updateUserAccess(id, accessStatus, accessNotes = "") {
+  return runAuthDb("update-user-access", {
+    id,
+    accessStatus,
+    accessNotes,
+  });
+}
+
+function listUserSubjects(id) {
+  return runAuthDb("list-user-subjects", { id }) || [];
+}
+
+function updateUserSubjects(id, subjects = []) {
+  return runAuthDb("update-user-subjects", { id, subjects }) || [];
 }
 
 function saveVerification(verification) {
-  const db = readStore();
-  db.verifications = db.verifications.filter((item) => {
-    return !(
-      item.email === verification.email && item.purpose === verification.purpose
-    );
-  });
-  db.verifications.push(verification);
-  writeStore(db);
-  return verification;
+  return runAuthDb("save-verification", verification);
 }
 
 function findVerification(email, purpose) {
-  const db = readStore();
-  return (
-    db.verifications.find((item) => {
-      return (
-        item.email === normalizeEmail(email) && item.purpose === purpose
-      );
-    }) || null
-  );
+  return runAuthDb("find-verification", { email, purpose });
 }
 
 function updateVerification(updatedVerification) {
-  const db = readStore();
-  const index = db.verifications.findIndex((item) => {
-    return item.id === updatedVerification.id;
-  });
-
-  if (index === -1) {
-    return null;
-  }
-
-  db.verifications[index] = updatedVerification;
-  writeStore(db);
-  return updatedVerification;
+  return runAuthDb("update-verification", updatedVerification);
 }
 
 function deleteVerification(id) {
-  const db = readStore();
-  db.verifications = db.verifications.filter((item) => item.id !== id);
-  writeStore(db);
+  runAuthDb("delete-verification", { id });
 }
+
+runAuthDb("init");
 
 module.exports = {
   createUser,
@@ -161,9 +106,13 @@ module.exports = {
   findUserById,
   findUserByPhone,
   findUserByProvider,
+  listUsers,
+  listUserSubjects,
   normalizeEmail,
   normalizePhone,
   saveVerification,
   updateUser,
+  updateUserAccess,
+  updateUserSubjects,
   updateVerification,
 };

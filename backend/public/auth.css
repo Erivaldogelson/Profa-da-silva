@@ -7,6 +7,101 @@
   --line: rgba(24, 24, 24, 0.12);
 }
 
+html[data-theme="dark"] {
+  --beige: #d8c58f;
+  --beige-strong: #cfb878;
+  --ink: #f4f1ea;
+  --muted: #c8beb0;
+  --white: #1b1917;
+  --line: rgba(255, 255, 255, 0.12);
+}
+
+html[data-theme="dark"] body {
+  background: #11100f;
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .plan-card,
+html[data-theme="dark"] .session-card,
+html[data-theme="dark"] .otp-intro,
+html[data-theme="dark"] .tab.is-active,
+html[data-theme="dark"] .social-btn {
+  background: #1b1917;
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+html[data-theme="dark"] .tabs {
+  background: #302b25;
+}
+
+html[data-theme="dark"] .auth-control,
+html[data-theme="dark"] .form-control,
+html[data-theme="dark"] .form-select {
+  background-color: #24211e;
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .btn-outline-dark {
+  border-color: rgba(255, 255, 255, 0.35);
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .btn-outline-dark:hover,
+html[data-theme="dark"] .btn-outline-dark:focus {
+  background: #f4f1ea;
+  color: #181818;
+}
+
+html[data-theme="dark"] .btn-dark {
+  background: #f4f1ea;
+  border-color: #f4f1ea;
+  color: #181818;
+}
+
+html[data-theme="dark"] .btn-plan,
+html[data-theme="dark"] .session-label {
+  color: #181818;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: #9d9284;
+}
+
+html[data-theme="dark"] .text-muted {
+  color: var(--muted) !important;
+}
+
+.theme-control {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+}
+
+.theme-control-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.theme-select {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 800;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -253,6 +348,22 @@ body {
 
 .auth-header h1 {
   font-size: 2.5rem;
+}
+
+.professor-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.professor-link:hover,
+.professor-link:focus {
+  color: var(--muted);
+  text-decoration: underline;
 }
 
 .categoria-titulo {

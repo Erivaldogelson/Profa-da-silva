@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Área do Aluno | Profª Da Silva</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="aluno.css">
+</head>
+<body>
+  <div class="student-shell sidebar-collapsed">
+    <aside class="student-sidebar">
+      <div class="student-brand">
+        <span class="brand-mark"><i class="bi bi-journal-bookmark"></i></span>
+        <div>
+          <p class="text-uppercase text-muted fw-semibold mb-1">Área do aluno</p>
+          <h1 class="h5 fw-bold mb-0">Meus estudos</h1>
+        </div>
+      </div>
+
+      <nav class="student-menu" aria-label="Menu do aluno">
+        <button class="student-menu-link is-active" type="button" data-module="dashboard">
+          <i class="bi bi-speedometer2"></i>
+          <span>Dashboard</span>
+        </button>
+        <button class="student-menu-link" type="button" data-module="events">
+          <i class="bi bi-calendar-event"></i>
+          <span>Eventos</span>
+        </button>
+        <button class="student-menu-link" type="button" data-module="announcements">
+          <i class="bi bi-megaphone"></i>
+          <span>Comunicados</span>
+        </button>
+        <button class="student-menu-link" type="button" data-module="classes">
+          <i class="bi bi-collection-play"></i>
+          <span>Aulas</span>
+        </button>
+        <button class="student-menu-link" type="button" data-module="grades">
+          <i class="bi bi-clipboard-check"></i>
+          <span>Notas</span>
+        </button>
+        <button class="student-menu-link" type="button" data-module="settings">
+          <i class="bi bi-gear"></i>
+          <span>Configurações</span>
+        </button>
+      </nav>
+    </aside>
+
+    <main class="student-main">
+      <div class="student-topbar mb-4">
+        <button id="student-menu-toggle" class="btn btn-outline-dark rounded-circle icon-btn" type="button" aria-label="Abrir ou fechar menu">
+          <i class="bi bi-list"></i>
+        </button>
+        <div>
+          <p id="student-kicker" class="text-uppercase text-muted fw-semibold mb-1">Portal do aluno</p>
+          <h2 id="student-title" class="fw-bold mb-0">Dashboard</h2>
+        </div>
+        <div class="student-topbar-actions">
+          <a class="btn btn-outline-dark rounded-pill" href="/pagamento">
+            <i class="bi bi-credit-card"></i>
+            Ver planos
+          </a>
+          <button id="student-logout" class="btn btn-dark rounded-pill" type="button">
+            <i class="bi bi-box-arrow-left"></i>
+            Sair
+          </button>
+        </div>
+      </div>
+
+      <section id="student-summary-panel" class="student-panel mb-4">
+        <div class="row g-4 align-items-center">
+          <div class="col-lg-8">
+            <span class="badge-status mb-3">Pagamento confirmado</span>
+            <h3 id="student-name" class="fw-bold">Bem-vindo(a)</h3>
+            <p id="student-info" class="text-muted mb-0">Carregando seus dados...</p>
+            <div id="student-subjects" class="subject-pills mt-3"></div>
+          </div>
+          <div class="col-lg-4">
+            <div class="access-card">
+              <i class="bi bi-shield-check"></i>
+              <p class="mb-1 fw-semibold">Conteúdo personalizado</p>
+              <small class="text-muted">Você vê apenas as disciplinas liberadas pela professora.</small>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="dashboard-module" class="student-panel student-module">
+        <div class="row g-3 mb-4">
+          <div class="col-md-4">
+            <div class="metric-card">
+              <span>Disciplinas</span>
+              <strong id="stat-subjects">0</strong>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="metric-card">
+              <span>Materiais</span>
+              <strong id="stat-materials">0</strong>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="metric-card">
+              <span>Próximas aulas</span>
+              <strong id="stat-events">0</strong>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="metric-card">
+              <span>Notas</span>
+              <strong id="stat-grades">0</strong>
+            </div>
+          </div>
+        </div>
+        <div class="chart-panel">
+          <div class="chart-row">
+            <span>PDFs</span>
+            <div class="chart-track"><div id="bar-pdfs" class="chart-bar"></div></div>
+            <strong id="stat-pdfs">0</strong>
+          </div>
+          <div class="chart-row">
+            <span>Vídeos</span>
+            <div class="chart-track"><div id="bar-videos" class="chart-bar"></div></div>
+            <strong id="stat-videos">0</strong>
+          </div>
+          <div class="chart-row">
+            <span>Comunicados</span>
+            <div class="chart-track"><div id="bar-announcements" class="chart-bar"></div></div>
+            <strong id="stat-announcements">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section id="events-module" class="student-panel student-module" hidden>
+        <div class="calendar-toolbar mb-4">
+          <button id="calendar-prev" class="btn btn-outline-dark rounded-circle icon-btn" type="button" aria-label="Mês anterior">
+            <i class="bi bi-chevron-left"></i>
+          </button>
+          <div class="calendar-title-group">
+            <select id="calendar-month" class="form-select" aria-label="Mês"></select>
+            <input id="calendar-year" class="form-control" type="number" min="1900" max="2100" aria-label="Ano">
+          </div>
+          <button id="calendar-next" class="btn btn-outline-dark rounded-circle icon-btn" type="button" aria-label="Próximo mês">
+            <i class="bi bi-chevron-right"></i>
+          </button>
+        </div>
+        <div id="events-calendar" class="calendar-grid mb-4"></div>
+        <div id="selected-day-events" class="student-list mb-4"></div>
+        <form id="event-form" class="mb-4">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Aula ou compromisso</label>
+              <input class="form-control" type="text" name="title" placeholder="Ex.: Aula de espanhol" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Disciplina</label>
+              <select id="event-subject" class="form-select" name="subject"></select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Data e hora</label>
+              <input class="form-control" type="datetime-local" name="startsAt" required>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <button class="btn btn-dark rounded-pill w-100" type="submit">Adicionar</button>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Observações</label>
+              <input class="form-control" type="text" name="notes" placeholder="Opcional">
+            </div>
+          </div>
+        </form>
+        <div id="events-feedback" class="text-muted mb-3">Carregando calendário...</div>
+        <div id="events-list" class="student-list"></div>
+      </section>
+
+      <section id="announcements-module" class="student-panel student-module" hidden>
+        <div id="announcements-feedback" class="text-muted mb-3">Carregando comunicados...</div>
+        <div id="announcements-list" class="student-list"></div>
+      </section>
+
+      <section id="classes-module" class="student-panel student-module" hidden>
+        <div id="materials-feedback" class="text-muted mb-3">Carregando aulas...</div>
+        <div id="materials-list" class="student-list"></div>
+      </section>
+
+      <section id="grades-module" class="student-panel student-module" hidden>
+        <div id="grades-feedback" class="text-muted mb-3">Carregando notas...</div>
+        <div id="grades-list" class="student-list"></div>
+      </section>
+
+      <section id="settings-module" class="student-panel student-module" hidden>
+        <form id="profile-form" enctype="multipart/form-data">
+          <div class="settings-grid">
+            <div class="profile-photo-panel">
+              <div class="profile-photo-preview">
+                <img id="profile-avatar-preview" alt="Foto do aluno" hidden>
+                <i id="profile-avatar-icon" class="bi bi-person"></i>
+              </div>
+              <label class="form-label mt-3">Foto</label>
+              <input id="profile-avatar" class="form-control" type="file" name="avatar" accept="image/*">
+            </div>
+
+            <div class="profile-fields">
+              <div class="mb-3">
+                <label class="form-label">Nome de usuário</label>
+                <input id="profile-name" class="form-control" type="text" name="name" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">E-mail de login</label>
+                <input id="profile-email" class="form-control" type="email" name="email" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Telefone</label>
+                <input id="profile-phone" class="form-control" type="tel" name="phoneNumber" placeholder="+55 11 99999-9999">
+              </div>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Nova senha</label>
+                  <input id="profile-password" class="form-control" type="password" name="password" minlength="6" placeholder="Opcional">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Confirmar nova senha</label>
+                  <input id="profile-password-confirm" class="form-control" type="password" name="passwordConfirm" minlength="6" placeholder="Repita a senha">
+                </div>
+              </div>
+              <div id="profile-feedback" class="text-muted mb-3">Atualize seus dados de acesso.</div>
+              <button class="btn btn-dark rounded-pill" type="submit">
+                <i class="bi bi-check2-circle"></i>
+                Salvar alterações
+              </button>
+            </div>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script src="/theme.js?v=20260515-theme"></script>
+  <script src="aluno.js?v=20260515-theme"></script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Professor | Profª Da Silva</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="auth.css">
+  <link rel="stylesheet" href="professor-login.css">
+</head>
+<body>
+  <main class="container py-5">
+    <div class="professor-login-topbar mb-4">
+      <a class="btn btn-outline-dark rounded-pill" href="login.html">
+        <i class="bi bi-person"></i>
+        Login do aluno
+      </a>
+    </div>
+
+    <div class="text-center mb-5 auth-header">
+      <h1 class="fw-bold">Acesso do professor</h1>
+      <p class="text-muted mb-0">Área separada para gestão de pagamentos e liberação dos logins dos alunos.</p>
+    </div>
+
+    <div class="row g-4 justify-content-center align-items-start">
+      <div class="col-lg-5">
+        <section class="plan-card auth-info-card">
+          <span class="badge-highlight">Gestão</span>
+          <h2 class="categoria-titulo mb-4">Painel protegido</h2>
+
+          <ul class="list-unstyled auth-benefits mb-0">
+            <li><i class="bi bi-shield-check"></i> Login separado do aluno</li>
+            <li><i class="bi bi-credit-card"></i> Confirmação de pagamentos</li>
+            <li><i class="bi bi-person-check"></i> Liberação e bloqueio de logins</li>
+            <li><i class="bi bi-database-check"></i> Dados salvos no banco SQL</li>
+          </ul>
+        </section>
+      </div>
+
+      <div class="col-lg-5">
+        <section class="plan-card auth-panel">
+          <div id="feedback" class="feedback" aria-live="polite"></div>
+
+          <form id="professor-login-form" class="auth-form is-visible">
+            <div class="mb-3">
+              <label class="form-label">E-mail do professor</label>
+              <input class="form-control auth-control" type="email" name="email" placeholder="professora@exemplo.com" required>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Senha</label>
+              <input class="form-control auth-control" type="password" name="password" placeholder="Digite sua senha" required>
+            </div>
+
+            <button class="btn btn-plan w-100" type="submit">
+              <i class="bi bi-box-arrow-in-right"></i>
+              Entrar como professor
+            </button>
+          </form>
+
+          <form id="professor-otp-form" class="auth-form auth-otp-form">
+            <div class="otp-intro mb-3">
+              <p class="mb-1 fw-semibold">Confirme o acesso</p>
+              <p id="otp-subtitle" class="text-muted mb-0">
+                Digite o código enviado para o e-mail do professor.
+              </p>
+            </div>
+
+            <input id="otp-email" type="hidden" name="email">
+
+            <div class="mb-3">
+              <label class="form-label">Código de confirmação</label>
+              <input
+                id="otp-code"
+                class="form-control auth-control otp-control"
+                type="text"
+                name="code"
+                inputmode="numeric"
+                maxlength="6"
+                placeholder="000000"
+                required
+              >
+            </div>
+
+            <div class="otp-actions mb-3">
+              <button id="otp-resend" class="btn btn-link otp-resend-link" type="button">
+                Enviar novamente
+              </button>
+            </div>
+
+            <button class="btn btn-plan w-100 mb-2" type="submit">Confirmar código</button>
+            <button id="otp-back" class="btn btn-outline-dark w-100 rounded-pill" type="button">
+              Voltar
+            </button>
+          </form>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script src="theme.js?v=20260515-theme"></script>
+  <script src="professor-login.js?v=20260515-theme"></script>
+</body>
+</html>

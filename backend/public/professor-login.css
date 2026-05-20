@@ -1,0 +1,21 @@
+.professor-login-topbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.auth-panel .btn-plan {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+@media (max-width: 575.98px) {
+  .professor-login-topbar {
+    justify-content: stretch;
+  }
+
+  .professor-login-topbar .btn {
+    width: 100%;
+  }
+}

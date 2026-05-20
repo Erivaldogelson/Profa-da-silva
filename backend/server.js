@@ -7,6 +7,7 @@ const session = require("express-session");
 const passport = require("passport");
 const bcrypt = require("bcryptjs");
 const dotenv = require("dotenv");
+const multer = require("multer");
 const nodemailer = require("nodemailer");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const {
@@ -17,10 +18,14 @@ const {
   findUserById,
   findUserByPhone,
   findUserByProvider,
+  listUsers,
+  listUserSubjects,
   normalizeEmail,
   normalizePhone,
   saveVerification,
   updateUser,
+  updateUserAccess,
+  updateUserSubjects,
   updateVerification,
 } = require("./auth-store");
 
@@ -30,6 +35,13 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const publicDir = path.join(__dirname, "public");
 const paymentDir = path.join(__dirname, "..", "Pro-fa Pagamento");
+const gestaoDir = path.join(__dirname, "gestao");
+const alunoDir = path.join(__dirname, "aluno");
+const uploadsDir = path.join(__dirname, "uploads");
+const pdfUploadsDir = path.join(uploadsDir, "pdfs");
+const videoUploadsDir = path.join(uploadsDir, "videos");
+const profileUploadsDir = path.join(uploadsDir, "profiles");
+const announcementUploadsDir = path.join(uploadsDir, "announcements");
 const sessionSecret = process.env.SESSION_SECRET || "troque-esta-chave";
 const otpExpiryMinutes = Number(process.env.OTP_EXPIRY_MINUTES || 10);
 const emailFrom =
@@ -37,6 +49,17 @@ const emailFrom =
   process.env.EMAIL_USER ||
   "nao-responda@profa.local";
 const pythonScript = path.join(__dirname, "python", "twilio_verify.py");
+const paymentDbScript = path.join(__dirname, "python", "payments_db.py");
+const materialsDbScript = path.join(__dirname, "python", "materials_db.py");
+const learningDbScript = path.join(__dirname, "python", "learning_db.py");
+const pythonEnv = {
+  ...process.env,
+  PYTHONIOENCODING: "utf-8",
+};
+const gestaoEmails = String(process.env.GESTAO_EMAILS || "")
+  .split(",")
+  .map((email) => normalizeEmail(email))
+  .filter(Boolean);
 const twilioConfigured =
   Boolean(process.env.TWILIO_ACCOUNT_SID) &&
   Boolean(process.env.TWILIO_AUTH_TOKEN) &&
@@ -60,6 +83,106 @@ const mailTransport = smtpConfigured
     })
   : null;
 
+[uploadsDir, pdfUploadsDir, videoUploadsDir, profileUploadsDir, announcementUploadsDir].forEach((dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
+
+const materialStorage = multer.diskStorage({
+  destination(req, file, callback) {
+    callback(null, req.materialType === "video" ? videoUploadsDir : pdfUploadsDir);
+  },
+  filename(req, file, callback) {
+    const safeBaseName = path
+      .basename(file.originalname, path.extname(file.originalname))
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "material";
+    const extension = path.extname(file.originalname).toLowerCase();
+    callback(null, `${Date.now()}-${crypto.randomUUID()}-${safeBaseName}${extension}`);
+  },
+});
+
+const materialUpload = multer({
+  storage: materialStorage,
+  limits: {
+    fileSize: 500 * 1024 * 1024,
+  },
+  fileFilter(req, file, callback) {
+    if (req.materialType === "pdf" && file.mimetype !== "application/pdf") {
+      callback(new Error("Envie um arquivo PDF válido."));
+      return;
+    }
+
+    if (req.materialType === "video" && !file.mimetype.startsWith("video/")) {
+      callback(new Error("Envie um arquivo de vídeo válido."));
+      return;
+    }
+
+    callback(null, true);
+  },
+});
+
+const profileStorage = multer.diskStorage({
+  destination(req, file, callback) {
+    callback(null, profileUploadsDir);
+  },
+  filename(req, file, callback) {
+    const extension = path.extname(file.originalname).toLowerCase() || ".jpg";
+    callback(null, `${req.user.id}-${Date.now()}-${crypto.randomUUID()}${extension}`);
+  },
+});
+
+const profileUpload = multer({
+  storage: profileStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter(req, file, callback) {
+    if (!file.mimetype.startsWith("image/")) {
+      callback(new Error("Envie uma imagem válida para a foto de perfil."));
+      return;
+    }
+
+    callback(null, true);
+  },
+});
+
+const announcementStorage = multer.diskStorage({
+  destination(req, file, callback) {
+    callback(null, announcementUploadsDir);
+  },
+  filename(req, file, callback) {
+    const safeBaseName = path
+      .basename(file.originalname, path.extname(file.originalname))
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "comunicado";
+    const extension = path.extname(file.originalname).toLowerCase();
+    callback(null, `${Date.now()}-${crypto.randomUUID()}-${safeBaseName}${extension}`);
+  },
+});
+
+const announcementUpload = multer({
+  storage: announcementStorage,
+  limits: {
+    fileSize: 500 * 1024 * 1024,
+  },
+  fileFilter(req, file, callback) {
+    if (!file.mimetype.startsWith("audio/") && !file.mimetype.startsWith("video/")) {
+      callback(new Error("Envie um arquivo de áudio ou vídeo válido."));
+      return;
+    }
+
+    callback(null, true);
+  },
+});
+
 function hasRealEnvValue(value, placeholderSnippets = []) {
   const normalized = String(value || "").trim();
 
@@ -72,14 +195,165 @@ function hasRealEnvValue(value, placeholderSnippets = []) {
 }
 
 function sanitizeUser(user) {
+  const role = getUserRole(user);
+
   return {
     id: user.id,
     name: user.name,
     email: user.email || "",
     phoneNumber: user.phoneNumber || "",
     createdAt: user.createdAt,
+    role,
+    accessStatus: user.accessStatus || "aguardando_pagamento",
+    paidAt: user.paidAt || "",
+    avatarUrl: user.avatarUrl || "",
+    subjects: Array.isArray(user.subjects) ? user.subjects : [],
     providers: (user.providers || []).map((provider) => provider.provider),
   };
+}
+
+function getUserRole(user) {
+  if (!user) {
+    return "aluno";
+  }
+
+  if (user.role === "gestao") {
+    return "gestao";
+  }
+
+  return gestaoEmails.includes(normalizeEmail(user.email)) ? "gestao" : "aluno";
+}
+
+function canAccessPaidArea(user) {
+  return getUserRole(user) === "gestao" || user?.accessStatus === "ativo";
+}
+
+function shouldSkipPayment(user) {
+  return getUserRole(user) !== "gestao" && user?.accessStatus === "ativo";
+}
+
+function normalizeSubjectName(subject) {
+  return String(subject || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function canAccessMaterial(user, material) {
+  if (getUserRole(user) === "gestao") {
+    return true;
+  }
+
+  const subjects = listUserSubjects(user.id).map(normalizeSubjectName);
+  const materialSubject = normalizeSubjectName(material.subject);
+  return Boolean(materialSubject) && subjects.includes(materialSubject);
+}
+
+function sendMaterialFile(res, material) {
+  const resolvedUploads = path.resolve(uploadsDir);
+  const resolvedFile = path.resolve(material.file_path);
+  const relativePath = path.relative(resolvedUploads, resolvedFile);
+
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    return res.status(400).json({ message: "Arquivo inválido." });
+  }
+
+  return res.sendFile(resolvedFile);
+}
+
+function sendProfileFile(req, res, next) {
+  const resolvedProfiles = path.resolve(profileUploadsDir);
+  const resolvedFile = path.resolve(profileUploadsDir, req.params.fileName || "");
+  const relativePath = path.relative(resolvedProfiles, resolvedFile);
+
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    return res.status(400).json({ message: "Arquivo inválido." });
+  }
+
+  return res.sendFile(resolvedFile, (error) => {
+    if (error) {
+      next(error);
+    }
+  });
+}
+
+function sendAnnouncementMediaFile(req, res, announcement) {
+  if (!announcement?.media_path) {
+    return res.status(404).json({ message: "Este comunicado não possui mídia." });
+  }
+
+  const resolvedAnnouncements = path.resolve(announcementUploadsDir);
+  const resolvedFile = path.resolve(announcement.media_path);
+  const relativePath = path.relative(resolvedAnnouncements, resolvedFile);
+
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    return res.status(400).json({ message: "Arquivo inválido." });
+  }
+
+  return res.sendFile(resolvedFile);
+}
+
+function canAccessAnnouncement(user, announcement) {
+  if (getUserRole(user) === "gestao") {
+    return true;
+  }
+
+  if (!announcement.subject) {
+    return true;
+  }
+
+  const subjects = listUserSubjects(user.id).map(normalizeSubjectName);
+  return subjects.includes(normalizeSubjectName(announcement.subject));
+}
+
+function requireAuth(req, res, next) {
+  if (req.user) {
+    return next();
+  }
+
+  if (req.path.startsWith("/api/")) {
+    return res.status(401).json({ message: "Faça login para continuar." });
+  }
+
+  return res.redirect("/login.html");
+}
+
+function requireGestao(req, res, next) {
+  if (!req.user) {
+    if (!req.originalUrl.startsWith("/api/")) {
+      return res.redirect("/professor-login.html");
+    }
+
+    return res.status(401).json({ message: "Faça login para continuar." });
+  }
+
+  if (getUserRole(req.user) !== "gestao") {
+    if (!req.originalUrl.startsWith("/api/")) {
+      return res.redirect("/professor-login.html?erro=permissao");
+    }
+
+    return res.status(403).json({
+      message: "Acesso permitido somente para a gestão.",
+    });
+  }
+
+  return next();
+}
+
+function requirePaidAccess(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Faça login para continuar." });
+  }
+
+  if (!canAccessPaidArea(req.user)) {
+    return res.status(402).json({
+      message:
+        "Seu acesso ainda aguarda confirmação do pagamento pela gestão.",
+    });
+  }
+
+  return next();
 }
 
 function generateOtpCode() {
@@ -87,9 +361,47 @@ function generateOtpCode() {
 }
 
 function buildPhoneCodeMessage(channel) {
-  return channel === "whatsapp"
-    ? "Código enviado por WhatsApp."
-    : "Código enviado por SMS. Em dispositivos compatíveis, a Twilio pode elevar a entrega para RCS.";
+  return "Código enviado por SMS.";
+}
+
+async function startSmsLogin(req, user, options = {}) {
+  if (!user.phoneNumber) {
+    return {
+      errorStatus: 400,
+      errorMessage: "Esta conta ainda não possui telefone cadastrado para confirmação por SMS.",
+    };
+  }
+
+  if (!twilioConfigured) {
+    return {
+      errorStatus: 400,
+      errorMessage:
+        "Twilio Verify ainda não está configurado. Preencha as credenciais da Twilio no .env para enviar SMS.",
+    };
+  }
+
+  try {
+    await runPythonTwilio(["start", user.phoneNumber, "sms"]);
+  } catch (error) {
+    return {
+      errorStatus: 500,
+      errorMessage: error.message,
+    };
+  }
+
+  req.session.pendingPhoneLogin = {
+    userId: user.id,
+    phoneNumber: user.phoneNumber,
+    channel: "sms",
+    requireRole: options.requireRole || "",
+  };
+
+  return {
+    message: buildPhoneCodeMessage("sms"),
+    phoneNumber: user.phoneNumber,
+    channel: "sms",
+    purpose: "login-phone",
+  };
 }
 
 async function sendOtpEmail(email, code, purpose) {
@@ -168,7 +480,7 @@ async function createVerification(payload) {
 
 function runPythonTwilio(args) {
   return new Promise((resolve, reject) => {
-    execFile("python", [pythonScript, ...args], (error, stdout, stderr) => {
+    execFile("python", [pythonScript, ...args], { env: pythonEnv }, (error, stdout, stderr) => {
       if (error) {
         reject(
           new Error(
@@ -186,6 +498,114 @@ function runPythonTwilio(args) {
         reject(new Error("Resposta inválida do script Python da Twilio."));
       }
     });
+  });
+}
+
+function runPaymentDb(action, payload = {}) {
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      "python",
+      [paymentDbScript, action],
+      { env: pythonEnv },
+      (error, stdout, stderr) => {
+        let parsed = null;
+
+        try {
+          parsed = JSON.parse(stdout || "{}");
+        } catch (parseError) {
+          reject(new Error("Resposta inválida do banco de dados Python."));
+          return;
+        }
+
+        if (error || !parsed.ok) {
+          reject(
+            new Error(
+              parsed.message ||
+                stderr?.trim() ||
+                "Falha ao executar o banco de dados Python."
+            )
+          );
+          return;
+        }
+
+        resolve(parsed.data);
+      }
+    );
+
+    child.stdin.write(JSON.stringify(payload));
+    child.stdin.end();
+  });
+}
+
+function runMaterialsDb(action, payload = {}) {
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      "python",
+      [materialsDbScript, action],
+      { env: pythonEnv },
+      (error, stdout, stderr) => {
+        let parsed = null;
+
+        try {
+          parsed = JSON.parse(stdout || "{}");
+        } catch (parseError) {
+          reject(new Error("Resposta inválida do banco de materiais."));
+          return;
+        }
+
+        if (error || !parsed.ok) {
+          reject(
+            new Error(
+              parsed.message ||
+                stderr?.trim() ||
+                "Falha ao executar o banco de materiais."
+            )
+          );
+          return;
+        }
+
+        resolve(parsed.data);
+      }
+    );
+
+    child.stdin.write(JSON.stringify(payload));
+    child.stdin.end();
+  });
+}
+
+function runLearningDb(action, payload = {}) {
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      "python",
+      [learningDbScript, action],
+      { env: pythonEnv },
+      (error, stdout, stderr) => {
+        let parsed = null;
+
+        try {
+          parsed = JSON.parse(stdout || "{}");
+        } catch (parseError) {
+          reject(new Error("Resposta inválida do banco de aprendizagem."));
+          return;
+        }
+
+        if (error || !parsed.ok) {
+          reject(
+            new Error(
+              parsed.message ||
+                stderr?.trim() ||
+                "Falha ao executar o banco de aprendizagem."
+            )
+          );
+          return;
+        }
+
+        resolve(parsed.data);
+      }
+    );
+
+    child.stdin.write(JSON.stringify(payload));
+    child.stdin.end();
   });
 }
 
@@ -283,7 +703,32 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(express.static(publicDir));
-app.use("/pagamento", express.static(paymentDir));
+app.use("/gestao", requireGestao, express.static(gestaoDir));
+app.use("/aluno", requirePaidAccess, express.static(alunoDir));
+app.use(
+  "/pagamento",
+  requireAuth,
+  (req, res, next) => {
+    if (shouldSkipPayment(req.user)) {
+      return res.redirect("/aluno/");
+    }
+
+    return next();
+  },
+  express.static(paymentDir)
+);
+
+runPaymentDb("init").catch((error) => {
+  console.error("Falha ao iniciar o banco de pagamentos:", error.message);
+});
+
+runMaterialsDb("init").catch((error) => {
+  console.error("Falha ao iniciar o banco de materiais:", error.message);
+});
+
+runLearningDb("init").catch((error) => {
+  console.error("Falha ao iniciar o banco de aprendizagem:", error.message);
+});
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true });
@@ -292,6 +737,7 @@ app.get("/api/health", (req, res) => {
 app.get("/api/auth/providers", (req, res) => {
   res.json({
     google: googleConfigured,
+    googleMode: googleConfigured ? "oauth" : "disabled",
     twilio: twilioConfigured,
   });
 });
@@ -421,6 +867,78 @@ app.post("/api/auth/login/start", async (req, res) => {
   });
 });
 
+app.post("/api/professor/login/start", async (req, res) => {
+  const email = normalizeEmail(req.body?.email);
+  const password = String(req.body?.password || "");
+  const user = findUserByEmail(email);
+
+  if (!user || !user.passwordHash) {
+    return res.status(401).json({ message: "E-mail ou senha inválidos." });
+  }
+
+  if (getUserRole(user) !== "gestao") {
+    return res.status(403).json({
+      message: "Este login é exclusivo para professor/gestão.",
+    });
+  }
+
+  const passwordMatches = await bcrypt.compare(password, user.passwordHash);
+
+  if (!passwordMatches) {
+    return res.status(401).json({ message: "E-mail ou senha inválidos." });
+  }
+
+  const result = await createVerification({
+    email,
+    purpose: "professor-login",
+    userId: user.id,
+  });
+
+  req.session.pendingProfessorLogin = {
+    email,
+    userId: user.id,
+  };
+
+  return res.json({
+    message: "Código de confirmação enviado para o e-mail do professor.",
+    email,
+    purpose: "professor-login",
+    debugCode: result.debugCode,
+    debugHint: result.debugHint,
+  });
+});
+
+app.post("/api/professor/login/resend", async (req, res) => {
+  const sessionData = req.session.pendingProfessorLogin;
+
+  if (!sessionData?.email || !sessionData?.userId) {
+    return res.status(400).json({
+      message: "Inicie novamente o login do professor para receber um novo código.",
+    });
+  }
+
+  const user = findUserById(sessionData.userId);
+
+  if (!user || user.email !== sessionData.email || getUserRole(user) !== "gestao") {
+    delete req.session.pendingProfessorLogin;
+    return res.status(404).json({ message: "Professor não encontrado." });
+  }
+
+  const result = await createVerification({
+    email: sessionData.email,
+    purpose: "professor-login",
+    userId: sessionData.userId,
+  });
+
+  return res.json({
+    message: "Novo código enviado para o e-mail do professor.",
+    email: sessionData.email,
+    purpose: "professor-login",
+    debugCode: result.debugCode,
+    debugHint: result.debugHint,
+  });
+});
+
 app.post("/api/auth/password/forgot/start", async (req, res) => {
   const phoneNumber = normalizePhone(req.body?.phoneNumber);
   const channel = String(req.body?.channel || "sms").trim().toLowerCase();
@@ -474,24 +992,10 @@ app.post("/api/auth/password/forgot/start", async (req, res) => {
 app.post("/api/auth/login/phone/start", async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   const password = String(req.body?.password || "");
-  const channel = String(req.body?.channel || "").trim().toLowerCase();
   const user = findUserByEmail(email);
 
   if (!user || !user.passwordHash) {
     return res.status(401).json({ message: "E-mail ou senha inválidos." });
-  }
-
-  if (!user.phoneNumber) {
-    return res.status(400).json({
-      message: "Esta conta ainda não possui telefone cadastrado para confirmação.",
-    });
-  }
-
-  if (!twilioConfigured) {
-    return res.status(400).json({
-      message:
-        "Twilio Verify ainda não está configurado. Preencha as credenciais da Twilio no .env.",
-    });
   }
 
   const passwordMatches = await bcrypt.compare(password, user.passwordHash);
@@ -500,24 +1004,13 @@ app.post("/api/auth/login/phone/start", async (req, res) => {
     return res.status(401).json({ message: "E-mail ou senha inválidos." });
   }
 
-  try {
-    await runPythonTwilio(["start", user.phoneNumber, channel]);
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  const result = await startSmsLogin(req, user);
+
+  if (result.errorStatus) {
+    return res.status(result.errorStatus).json({ message: result.errorMessage });
   }
 
-  req.session.pendingPhoneLogin = {
-    userId: user.id,
-    phoneNumber: user.phoneNumber,
-    channel,
-  };
-
-  return res.json({
-    message: buildPhoneCodeMessage(channel),
-    phoneNumber: user.phoneNumber,
-    channel,
-    purpose: "login-phone",
-  });
+  return res.json(result);
 });
 
 app.post("/api/auth/register/resend", async (req, res) => {
@@ -701,7 +1194,11 @@ app.post("/api/auth/verify", async (req, res) => {
   const code = String(req.body?.code || "").trim();
   const purpose = String(req.body?.purpose || "").trim();
 
-  if (!email || !code || !["login", "register"].includes(purpose)) {
+  if (
+    !email ||
+    !code ||
+    !["login", "register", "professor-login"].includes(purpose)
+  ) {
     return res.status(400).json({ message: "Informe e-mail, código e operação." });
   }
 
@@ -731,6 +1228,7 @@ app.post("/api/auth/verify", async (req, res) => {
   deleteVerification(verification.id);
   delete req.session.pendingEmailRegister;
   delete req.session.pendingEmailLogin;
+  delete req.session.pendingProfessorLogin;
 
   let user = null;
 
@@ -756,6 +1254,12 @@ app.post("/api/auth/verify", async (req, res) => {
     return res.status(404).json({ message: "Usuário não encontrado." });
   }
 
+  if (purpose === "professor-login" && getUserRole(user) !== "gestao") {
+    return res.status(403).json({
+      message: "Este login é exclusivo para professor/gestão.",
+    });
+  }
+
   req.login(user, (error) => {
     if (error) {
       return res.status(500).json({ message: "Não foi possível iniciar a sessão." });
@@ -765,6 +1269,8 @@ app.post("/api/auth/verify", async (req, res) => {
       message:
         purpose === "register"
           ? "Cadastro confirmado com sucesso."
+          : purpose === "professor-login"
+            ? "Login do professor confirmado com sucesso."
           : "Login confirmado com sucesso.",
       user: sanitizeUser(user),
     });
@@ -1024,6 +1530,13 @@ app.post("/api/auth/login/phone/verify", async (req, res) => {
     return res.status(404).json({ message: "Usuário não encontrado." });
   }
 
+  if (sessionData.requireRole && getUserRole(user) !== sessionData.requireRole) {
+    delete req.session.pendingPhoneLogin;
+    return res.status(403).json({
+      message: "Este acesso é exclusivo para professor/gestão.",
+    });
+  }
+
   delete req.session.pendingPhoneLogin;
 
   req.login(user, (error) => {
@@ -1061,6 +1574,856 @@ app.get("/api/auth/me", (req, res) => {
   });
 });
 
+app.get("/pos-login", requireAuth, (req, res) => {
+  if (getUserRole(req.user) === "gestao") {
+    return res.redirect("/gestao/");
+  }
+
+  if (shouldSkipPayment(req.user)) {
+    return res.redirect("/aluno/");
+  }
+
+  return res.redirect("/pagamento");
+});
+
+app.get("/api/aluno/status", requirePaidAccess, (req, res) => {
+  return res.json({
+    message: "Acesso liberado.",
+    user: sanitizeUser(req.user),
+  });
+});
+
+app.get("/uploads/profiles/:fileName", requirePaidAccess, sendProfileFile);
+
+app.post(
+  "/api/aluno/profile",
+  requirePaidAccess,
+  profileUpload.single("avatar"),
+  async (req, res) => {
+    const name = String(req.body?.name || "").trim();
+    const email = normalizeEmail(req.body?.email);
+    const phoneNumber = normalizePhone(req.body?.phoneNumber);
+    const password = String(req.body?.password || "");
+    const passwordConfirm = String(req.body?.passwordConfirm || "");
+
+    if (!name || !email) {
+      return res.status(400).json({ message: "Informe nome e e-mail válidos." });
+    }
+
+    if ((password || passwordConfirm) && password !== passwordConfirm) {
+      return res.status(400).json({ message: "A confirmação da nova senha não confere." });
+    }
+
+    if (password && password.length < 6) {
+      return res.status(400).json({ message: "A nova senha precisa ter pelo menos 6 caracteres." });
+    }
+
+    const emailOwner = findUserByEmail(email);
+    if (emailOwner && emailOwner.id !== req.user.id) {
+      return res.status(409).json({ message: "Este e-mail já está em uso." });
+    }
+
+    const phoneOwner = phoneNumber ? findUserByPhone(phoneNumber) : null;
+    if (phoneOwner && phoneOwner.id !== req.user.id) {
+      return res.status(409).json({ message: "Este telefone já está em uso." });
+    }
+
+    const updatedUser = {
+      ...req.user,
+      name,
+      email,
+      phoneNumber,
+    };
+
+    if (password) {
+      updatedUser.passwordHash = await bcrypt.hash(password, 10);
+    }
+
+    if (req.file) {
+      updatedUser.avatarPath = req.file.path;
+      updatedUser.avatarUrl = `/uploads/profiles/${req.file.filename}`;
+    }
+
+    let savedUser = null;
+
+    try {
+      savedUser = updateUser(updatedUser);
+    } catch (error) {
+      return res.status(400).json({
+        message: "Não foi possível atualizar o perfil. Verifique os dados informados.",
+      });
+    }
+
+    return req.login(savedUser, (error) => {
+      if (error) {
+        return res.status(500).json({ message: "Perfil atualizado, mas não foi possível renovar a sessão." });
+      }
+
+      return res.json({
+        message: "Perfil atualizado com sucesso.",
+        user: sanitizeUser(savedUser),
+      });
+    });
+  }
+);
+
+app.get("/api/aluno/materials", requirePaidAccess, async (req, res) => {
+  try {
+    const subjects = listUserSubjects(req.user.id);
+    if (!subjects.length && getUserRole(req.user) !== "gestao") {
+      return res.json({ subjects, materials: [] });
+    }
+
+    const subjectKeys = subjects.map(normalizeSubjectName);
+    const allMaterials = await runMaterialsDb("list-materials", {
+      type: req.query.type || "",
+    });
+    const materials = allMaterials.filter((material) => {
+      return subjectKeys.includes(normalizeSubjectName(material.subject));
+    });
+
+    return res.json({ subjects, materials });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/aluno/announcements", requirePaidAccess, async (req, res) => {
+  try {
+    const subjects = listUserSubjects(req.user.id);
+    const subjectKeys = subjects.map(normalizeSubjectName);
+    const allAnnouncements = await runLearningDb("list-announcements", {});
+    const announcements = allAnnouncements.filter((announcement) => {
+      return (
+        !announcement.subject ||
+        subjectKeys.includes(normalizeSubjectName(announcement.subject))
+      );
+    });
+    return res.json({ announcements });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/aluno/announcements/:id/media", requirePaidAccess, async (req, res) => {
+  try {
+    const announcement = await runLearningDb("get-announcement", { id: req.params.id });
+
+    if (!canAccessAnnouncement(req.user, announcement)) {
+      return res.status(403).json({
+        message: "Este comunicado não está liberado para as suas matérias.",
+      });
+    }
+
+    return sendAnnouncementMediaFile(req, res, announcement);
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+});
+
+app.get("/api/aluno/events", requirePaidAccess, async (req, res) => {
+  try {
+    const events = await runLearningDb("list-events", { userId: req.user.id });
+    return res.json({ events });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/api/aluno/events", requirePaidAccess, async (req, res) => {
+  try {
+    const event = await runLearningDb("create-event", {
+      userId: req.user.id,
+      title: req.body?.title,
+      subject: req.body?.subject || "",
+      startsAt: req.body?.startsAt,
+      notes: req.body?.notes || "",
+    });
+
+    return res.status(201).json({
+      message: "Aula adicionada ao calendário.",
+      event,
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.delete("/api/aluno/events/:id", requirePaidAccess, async (req, res) => {
+  try {
+    const event = await runLearningDb("delete-event", {
+      id: req.params.id,
+      userId: req.user.id,
+    });
+    return res.json({ message: "Evento apagado.", event });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.get("/api/aluno/grades", requirePaidAccess, async (req, res) => {
+  try {
+    const grades = await runLearningDb("list-grades", { userId: req.user.id });
+    return res.json({ grades });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/aluno/dashboard", requirePaidAccess, async (req, res) => {
+  try {
+    const subjects = listUserSubjects(req.user.id);
+    const subjectKeys = subjects.map(normalizeSubjectName);
+    const allMaterials = await runMaterialsDb("list-materials", {});
+    const materials = allMaterials.filter((material) => {
+      return subjectKeys.includes(normalizeSubjectName(material.subject));
+    });
+    const allAnnouncements = await runLearningDb("list-announcements", {});
+    const announcements = allAnnouncements.filter((announcement) => {
+      return (
+        !announcement.subject ||
+        subjectKeys.includes(normalizeSubjectName(announcement.subject))
+      );
+    });
+    const events = await runLearningDb("list-events", { userId: req.user.id });
+    const grades = await runLearningDb("list-grades", { userId: req.user.id });
+    const now = Date.now();
+    const upcomingEvents = events.filter((event) => {
+      return new Date(event.starts_at).getTime() >= now;
+    });
+
+    return res.json({
+      subjects,
+      stats: {
+        subjects: subjects.length,
+        materials: materials.length,
+        pdfs: materials.filter((material) => material.type === "pdf").length,
+        videos: materials.filter((material) => material.type === "video").length,
+        announcements: announcements.length,
+        upcomingEvents: upcomingEvents.length,
+        grades: grades.length,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/aluno/materials/:id/file", requirePaidAccess, async (req, res) => {
+  try {
+    const material = await runMaterialsDb("get-material", { id: req.params.id });
+
+    if (!canAccessMaterial(req.user, material)) {
+      return res.status(403).json({
+        message: "Este conteúdo não está liberado para as suas matérias.",
+      });
+    }
+
+    return sendMaterialFile(res, material);
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+});
+
+app.post("/api/payments", requireAuth, async (req, res) => {
+  const materia = String(req.body?.materia || "").trim();
+  const plano = String(req.body?.plano || "").trim();
+
+  if (!materia || !plano) {
+    return res.status(400).json({ message: "Informe a matéria e o plano." });
+  }
+
+  try {
+    const payment = await runPaymentDb("create-payment", {
+      userId: req.user.id,
+      userName: req.user.name || "Aluno(a)",
+      userEmail: req.user.email || "",
+      userPhone: req.user.phoneNumber || "",
+      materia,
+      plano,
+    });
+
+    return res.status(201).json({
+      message: "Pedido registrado com segurança.",
+      payment,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/payment-catalog", requireAuth, async (req, res) => {
+  try {
+    const courses = await runPaymentDb("list-catalog", {
+      includeInactive: false,
+    });
+    return res.json({ courses });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/gestao/payments", requireGestao, async (req, res) => {
+  try {
+    const payments = await runPaymentDb("list-payments", {
+      status: req.query.status || "",
+    });
+
+    return res.json({ payments });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/gestao/payment-catalog", requireGestao, async (req, res) => {
+  try {
+    const courses = await runPaymentDb("list-catalog", {
+      includeInactive: true,
+    });
+    return res.json({ courses });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/api/gestao/payment-courses", requireGestao, async (req, res) => {
+  try {
+    const course = await runPaymentDb("create-course", {
+      name: req.body?.name,
+      icon: req.body?.icon || "",
+      description: req.body?.description || "",
+      sortOrder: req.body?.sortOrder || 0,
+      isActive: req.body?.isActive !== false,
+    });
+    return res.status(201).json({ message: "Curso salvo.", course });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.patch("/api/gestao/payment-courses/:id", requireGestao, async (req, res) => {
+  try {
+    const course = await runPaymentDb("update-course", {
+      id: req.params.id,
+      name: req.body?.name,
+      icon: req.body?.icon || "",
+      description: req.body?.description || "",
+      sortOrder: req.body?.sortOrder || 0,
+      isActive: req.body?.isActive !== false,
+    });
+    return res.json({ message: "Curso atualizado.", course });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.delete("/api/gestao/payment-courses/:id", requireGestao, async (req, res) => {
+  try {
+    const course = await runPaymentDb("delete-course", { id: req.params.id });
+    return res.json({ message: "Curso apagado.", course });
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+});
+
+app.post("/api/gestao/payment-plans", requireGestao, async (req, res) => {
+  try {
+    const plan = await runPaymentDb("create-plan", {
+      courseId: req.body?.courseId,
+      title: req.body?.title,
+      subtitle: req.body?.subtitle || "",
+      priceText: req.body?.priceText,
+      secondaryPriceText: req.body?.secondaryPriceText || "",
+      features: req.body?.features || [],
+      badge: req.body?.badge || "",
+      isHighlighted: req.body?.isHighlighted === true,
+      isActive: req.body?.isActive !== false,
+      sortOrder: req.body?.sortOrder || 0,
+    });
+    return res.status(201).json({ message: "Plano salvo.", plan });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.patch("/api/gestao/payment-plans/:id", requireGestao, async (req, res) => {
+  try {
+    const plan = await runPaymentDb("update-plan", {
+      id: req.params.id,
+      courseId: req.body?.courseId,
+      title: req.body?.title,
+      subtitle: req.body?.subtitle || "",
+      priceText: req.body?.priceText,
+      secondaryPriceText: req.body?.secondaryPriceText || "",
+      features: req.body?.features || [],
+      badge: req.body?.badge || "",
+      isHighlighted: req.body?.isHighlighted === true,
+      isActive: req.body?.isActive !== false,
+      sortOrder: req.body?.sortOrder || 0,
+    });
+    return res.json({ message: "Plano atualizado.", plan });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.delete("/api/gestao/payment-plans/:id", requireGestao, async (req, res) => {
+  try {
+    const plan = await runPaymentDb("delete-plan", { id: req.params.id });
+    return res.json({ message: "Plano apagado.", plan });
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+});
+
+app.patch("/api/gestao/payments/:id/status", requireGestao, async (req, res) => {
+  try {
+    const payment = await runPaymentDb("update-payment-status", {
+      id: req.params.id,
+      status: req.body?.status,
+      note: req.body?.note || "",
+      managerId: req.user.id,
+    });
+
+    if (payment.status === "pago") {
+      updateUserAccess(
+        payment.user_id,
+        "ativo",
+        `Acesso liberado pelo pagamento #${payment.id}.`
+      );
+    }
+
+    if (payment.status === "cancelado") {
+      updateUserAccess(
+        payment.user_id,
+        "pausado",
+        `Acesso pausado pelo cancelamento do pagamento #${payment.id}.`
+      );
+    }
+
+    return res.json({
+      message: "Status atualizado.",
+      payment,
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.get("/api/gestao/users", requireGestao, (req, res) => {
+  try {
+    const users = listUsers(req.query.accessStatus || "").map(sanitizeUser);
+    return res.json({ users });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/gestao/events", requireGestao, async (req, res) => {
+  try {
+    const users = listUsers("").map(sanitizeUser);
+    const events = await runLearningDb("list-events", {
+      userId: req.query.userId || "",
+    });
+    const usersById = new Map(users.map((user) => [user.id, user]));
+    const enrichedEvents = events.map((event) => ({
+      ...event,
+      user: usersById.get(event.user_id) || null,
+    }));
+
+    return res.json({ users, events: enrichedEvents });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/api/gestao/events", requireGestao, async (req, res) => {
+  try {
+    const target = String(req.body?.target || "").trim();
+    const title = String(req.body?.title || "").trim();
+    const startsAt = String(req.body?.startsAt || "").trim();
+    const professorId = String(req.user?.id || "").trim();
+
+    if (!target) {
+      return res.status(400).json({ message: "Selecione um login ou escolha todos os alunos." });
+    }
+
+    if (!title || !startsAt) {
+      return res.status(400).json({ message: "Preencha o título, a data e a hora do evento." });
+    }
+
+    if (!professorId) {
+      return res.status(400).json({ message: "Sessão da professora não foi identificada. Faça login novamente." });
+    }
+
+    const users = listUsers("").map(sanitizeUser);
+    const studentUsers = users.filter((user) => user.id !== professorId && user.role !== "gestao");
+    let targetUsers = [];
+
+    if (target === "all") {
+      targetUsers = studentUsers;
+    } else if (target === "professor") {
+      targetUsers = [sanitizeUser(req.user)];
+    } else {
+      const normalizedTargetEmail = normalizeEmail(target);
+      const normalizedTargetPhone = normalizePhone(target);
+      const user = users.find((item) => {
+        return (
+          item.id === target ||
+          normalizeEmail(item.email) === normalizedTargetEmail ||
+          normalizePhone(item.phoneNumber) === normalizedTargetPhone
+        );
+      });
+      if (!user) {
+        return res.status(400).json({ message: "Login selecionado não encontrado. Atualize a lista e tente novamente." });
+      }
+      targetUsers = [user];
+    }
+
+    if (!targetUsers.length) {
+      return res.status(400).json({ message: "Nenhum login disponível para receber o evento." });
+    }
+
+    const events = [];
+    for (const user of targetUsers) {
+      events.push(
+        await runLearningDb("create-event", {
+          userId: user.id,
+          title,
+          subject: req.body?.subject || "",
+          startsAt,
+          notes: req.body?.notes || "",
+          createdBy: professorId,
+          createdByRole: "professor",
+        })
+      );
+    }
+
+    return res.status(201).json({
+      message: target === "all" ? "Evento enviado para todos os alunos." : "Evento criado.",
+      events,
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.delete("/api/gestao/events/:id", requireGestao, async (req, res) => {
+  try {
+    const event = await runLearningDb("delete-event", {
+      id: req.params.id,
+      managerId: req.user?.id || "gestao",
+    });
+    return res.json({ message: "Evento apagado.", event });
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+});
+
+app.patch("/api/gestao/users/:id/access", requireGestao, (req, res) => {
+  try {
+    const accessStatus = String(req.body?.accessStatus || "").trim();
+    const accessNotes = String(req.body?.accessNotes || "").trim();
+    const user = updateUserAccess(req.params.id, accessStatus, accessNotes);
+
+    return res.json({
+      message: "Acesso do aluno atualizado.",
+      user: sanitizeUser(user),
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.get("/api/gestao/users/:id/subjects", requireGestao, (req, res) => {
+  try {
+    const subjects = listUserSubjects(req.params.id);
+    return res.json({ subjects });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.patch("/api/gestao/users/:id/subjects", requireGestao, (req, res) => {
+  try {
+    const subjects = Array.isArray(req.body?.subjects) ? req.body.subjects : [];
+    const updatedSubjects = updateUserSubjects(req.params.id, subjects);
+    return res.json({
+      message: "Matérias do aluno atualizadas.",
+      subjects: updatedSubjects,
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.get("/api/gestao/grades", requireGestao, async (req, res) => {
+  try {
+    const users = listUsers("").map(sanitizeUser);
+    const grades = await runLearningDb("list-grades", {
+      userId: req.query.userId || "",
+    });
+    const usersById = new Map(users.map((user) => [user.id, user]));
+    const enrichedGrades = grades.map((grade) => ({
+      ...grade,
+      user: usersById.get(grade.user_id) || null,
+    }));
+
+    return res.json({ users, grades: enrichedGrades });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/api/gestao/grades", requireGestao, async (req, res) => {
+  try {
+    const user = findUserById(req.body?.userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "Aluno não encontrado." });
+    }
+
+    const grade = await runLearningDb("create-grade", {
+      userId: user.id,
+      subject: req.body?.subject,
+      title: req.body?.title,
+      score: req.body?.score,
+      maxScore: req.body?.maxScore || 10,
+      notes: req.body?.notes || "",
+      createdBy: req.user.id,
+    });
+
+    return res.status(201).json({
+      message: "Nota registrada.",
+      grade: {
+        ...grade,
+        user: sanitizeUser(user),
+      },
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.delete("/api/gestao/grades/:id", requireGestao, async (req, res) => {
+  try {
+    const grade = await runLearningDb("delete-grade", { id: req.params.id });
+    return res.json({ message: "Nota apagada.", grade });
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+});
+
+function setMaterialType(type) {
+  return (req, res, next) => {
+    req.materialType = type;
+    next();
+  };
+}
+
+function handleMaterialUploadError(error, req, res, next) {
+  if (error) {
+    return res.status(400).json({ message: error.message });
+  }
+
+  return next();
+}
+
+app.get("/api/gestao/materials", requireGestao, async (req, res) => {
+  try {
+    const materials = await runMaterialsDb("list-materials", {
+      type: req.query.type || "",
+    });
+
+    return res.json({ materials });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/gestao/materials/:id/file", requireGestao, async (req, res) => {
+  try {
+    const material = await runMaterialsDb("get-material", { id: req.params.id });
+    return sendMaterialFile(res, material);
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+});
+
+app.get("/api/gestao/announcements", requireGestao, async (req, res) => {
+  try {
+    const announcements = await runLearningDb("list-announcements", {});
+    return res.json({ announcements });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/api/gestao/announcements/:id/media", requireGestao, async (req, res) => {
+  try {
+    const announcement = await runLearningDb("get-announcement", { id: req.params.id });
+    return sendAnnouncementMediaFile(req, res, announcement);
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+});
+
+app.post("/api/gestao/announcements", requireGestao, announcementUpload.single("media"), async (req, res) => {
+  try {
+    const mediaType = req.file?.mimetype.startsWith("video/") ? "video" : req.file?.mimetype.startsWith("audio/") ? "audio" : "";
+    const announcement = await runLearningDb("create-announcement", {
+      title: req.body?.title,
+      body: req.body?.body,
+      subject: req.body?.subject || "",
+      module: req.body?.module || "",
+      mediaType,
+      mediaPath: req.file?.path || "",
+      mediaUrl: "",
+      mediaMimeType: req.file?.mimetype || "",
+      mediaOriginalName: req.file?.originalname || "",
+      createdBy: req.user.id,
+    });
+
+    return res.status(201).json({
+      message: "Comunicado publicado.",
+      announcement,
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.delete("/api/gestao/announcements/:id", requireGestao, async (req, res) => {
+  try {
+    const announcement = await runLearningDb("delete-announcement", {
+      id: req.params.id,
+    });
+    if (announcement.media_path) {
+      fs.unlink(announcement.media_path, () => {});
+    }
+    return res.json({ message: "Comunicado apagado.", announcement });
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+});
+
+app.patch("/api/gestao/materials/:id", requireGestao, async (req, res) => {
+  try {
+    const material = await runMaterialsDb("update-material", {
+      id: req.params.id,
+      title: req.body?.title,
+      description: req.body?.description || "",
+      subject: req.body?.subject,
+      module: req.body?.module || "",
+    });
+
+    return res.json({
+      message: "Material atualizado com sucesso.",
+      material,
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.delete("/api/gestao/materials/:id", requireGestao, async (req, res) => {
+  try {
+    const material = await runMaterialsDb("delete-material", { id: req.params.id });
+    const resolvedUploads = path.resolve(uploadsDir);
+    const resolvedFile = path.resolve(material.file_path);
+    const relativePath = path.relative(resolvedUploads, resolvedFile);
+
+    if (!relativePath.startsWith("..") && !path.isAbsolute(relativePath)) {
+      fs.rm(resolvedFile, { force: true }, (error) => {
+        if (error) {
+          console.error("Falha ao apagar arquivo de material:", error.message);
+        }
+      });
+    }
+
+    return res.json({
+      message: "Material apagado com sucesso.",
+      material,
+    });
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+});
+
+app.post(
+  "/api/gestao/materials/pdf",
+  requireGestao,
+  setMaterialType("pdf"),
+  materialUpload.single("material"),
+  handleMaterialUploadError,
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ message: "Envie um arquivo PDF." });
+    }
+
+    try {
+      const material = await runMaterialsDb("create-material", {
+        type: "pdf",
+        title: req.body?.title || req.file.originalname,
+        description: req.body?.description || "",
+        subject: req.body?.subject || "",
+        module: req.body?.module || "",
+        originalName: req.file.originalname,
+        fileName: req.file.filename,
+        filePath: req.file.path,
+        fileUrl: `/uploads/pdfs/${req.file.filename}`,
+        mimeType: req.file.mimetype,
+        sizeBytes: req.file.size,
+        createdBy: req.user.id,
+      });
+
+      return res.status(201).json({
+        message: "PDF publicado com sucesso.",
+        material,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: error.message });
+    }
+  }
+);
+
+app.post(
+  "/api/gestao/materials/video",
+  requireGestao,
+  setMaterialType("video"),
+  materialUpload.single("material"),
+  handleMaterialUploadError,
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ message: "Envie um arquivo de vídeo." });
+    }
+
+    try {
+      const material = await runMaterialsDb("create-material", {
+        type: "video",
+        title: req.body?.title || req.file.originalname,
+        description: req.body?.description || "",
+        subject: req.body?.subject || "",
+        module: req.body?.module || "",
+        originalName: req.file.originalname,
+        fileName: req.file.filename,
+        filePath: req.file.path,
+        fileUrl: `/uploads/videos/${req.file.filename}`,
+        mimeType: req.file.mimetype,
+        sizeBytes: req.file.size,
+        createdBy: req.user.id,
+      });
+
+      return res.status(201).json({
+        message: "Vídeo aula publicada com sucesso.",
+        material,
+      });
+    } catch (error) {
+      return res.status(500).json({ message: error.message });
+    }
+  }
+);
+
 app.get("/voltar-login", (req, res) => {
   req.logout((error) => {
     if (error) {
@@ -1073,7 +2436,11 @@ app.get("/voltar-login", (req, res) => {
   });
 });
 
-app.get("/pagamento", (req, res) => {
+app.get("/pagamento", requireAuth, (req, res) => {
+  if (shouldSkipPayment(req.user)) {
+    return res.redirect("/aluno/");
+  }
+
   res.sendFile(path.join(paymentDir, "planos.html"));
 });
 
@@ -1082,11 +2449,10 @@ app.get("/auth/google", (req, res, next) => {
     return res.redirect("/login.html?erro=google");
   }
 
-  return passport.authenticate("google", { scope: ["profile", "email"] })(
-    req,
-    res,
-    next
-  );
+  return passport.authenticate("google", {
+    scope: ["profile", "email"],
+    prompt: "select_account",
+  })(req, res, next);
 });
 
 app.get("/auth/google/callback", (req, res, next) => {
@@ -1094,9 +2460,20 @@ app.get("/auth/google/callback", (req, res, next) => {
     return res.redirect("/login.html?erro=google");
   }
 
-  return passport.authenticate("google", {
-    failureRedirect: "/login.html?erro=social",
-    successRedirect: "/pagamento",
+  return passport.authenticate("google", (error, user) => {
+    if (error || !user) {
+      console.error("Falha no login com Google:", error?.message || "Usuário ausente.");
+      return res.redirect("/login.html?erro=social");
+    }
+
+    return req.login(user, (loginError) => {
+      if (loginError) {
+        console.error("Falha ao iniciar sessão Google:", loginError.message);
+        return res.redirect("/login.html?erro=social");
+      }
+
+      return res.redirect("/pos-login");
+    });
   })(req, res, next);
 });
 

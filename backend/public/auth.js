@@ -23,6 +23,7 @@ const otpResend = document.getElementById("otp-resend");
 const forgotPasswordLink = document.getElementById("forgot-password-link");
 const forgotBack = document.getElementById("forgot-back");
 const paymentPath = "/pagamento";
+const studentPortalPath = "/aluno/";
 
 function setMode(mode) {
   tabs.forEach((tab) => {
@@ -83,6 +84,16 @@ function goToPayment() {
   window.location.href = paymentPath;
 }
 
+function routeAfterLogin(user) {
+  if (user?.role === "gestao") {
+    window.location.href = "/gestao/";
+    return;
+  }
+
+  window.location.href =
+    user?.accessStatus === "ativo" ? studentPortalPath : paymentPath;
+}
+
 function showOtpStep({
   purpose,
   email = "",
@@ -109,7 +120,7 @@ function showOtpStep({
       : "Confirme seu login";
   otpSubtitle.textContent =
     purpose.endsWith("-phone")
-      ? `Digite o código enviado para ${phoneNumber} via ${channel === "whatsapp" ? "WhatsApp" : "SMS / RCS"}.`
+      ? `Digite o código enviado por SMS para ${phoneNumber}.`
       : `Digite o código enviado para ${email}.`;
 
   const helperMessage = debugCode
@@ -221,6 +232,7 @@ loginForm.addEventListener("submit", async (event) => {
     const data = await sendAuthRequest("/api/auth/login/start", {
       email: formData.get("email"),
       password: formData.get("password"),
+      channel: "sms",
     });
 
     loginForm.reset();
@@ -305,7 +317,7 @@ otpForm.addEventListener("submit", async (event) => {
     }
 
     updateSession(data.user);
-    setTimeout(goToPayment, 500);
+    setTimeout(() => routeAfterLogin(data.user), 500);
   } catch (error) {
     setFeedback(error.message, "error");
   }
@@ -355,10 +367,15 @@ logoutBtn.addEventListener("click", async () => {
 const params = new URLSearchParams(window.location.search);
 
 if (params.get("sucesso") === "google") {
-  goToPayment();
+  window.location.href = "/pos-login";
 }
 
-if (params.get("erro")) {
+if (params.get("erro") === "google") {
+  setFeedback(
+    "Login com Google ainda não configurado. Coloque o GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET reais no arquivo .env e reinicie o servidor.",
+    "error"
+  );
+} else if (params.get("erro")) {
   setFeedback("Não foi possível concluir a autenticação social.", "error");
 }
 

@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gestão de Pagamentos | Profª Da Silva</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="gestao.css">
+</head>
+<body>
+  <div class="gestao-shell">
+    <aside id="gestao-sidebar" class="gestao-sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-mark"><i class="bi bi-mortarboard"></i></span>
+        <div>
+          <p class="text-uppercase text-muted fw-semibold mb-1">Área protegida</p>
+          <h1 class="h5 fw-bold mb-0">Painel da professora</h1>
+        </div>
+      </div>
+
+      <nav class="module-menu" aria-label="Módulos da gestão">
+        <button class="module-link is-active" type="button" data-module="access">
+          <i class="bi bi-shield-lock"></i>
+          <span>Gestão de acesso</span>
+        </button>
+        <button class="module-link" type="button" data-module="pdfs">
+          <i class="bi bi-file-earmark-pdf"></i>
+          <span>Módulos PDF</span>
+        </button>
+        <button class="module-link" type="button" data-module="videos">
+          <i class="bi bi-camera-video"></i>
+          <span>Vídeo aulas</span>
+        </button>
+        <button class="module-link" type="button" data-module="announcements">
+          <i class="bi bi-megaphone"></i>
+          <span>Comunicados</span>
+        </button>
+        <button class="module-link" type="button" data-module="events">
+          <i class="bi bi-calendar-event"></i>
+          <span>Calendário</span>
+        </button>
+        <button class="module-link" type="button" data-module="grades">
+          <i class="bi bi-clipboard-check"></i>
+          <span>Notas</span>
+        </button>
+      </nav>
+    </aside>
+
+    <main class="gestao-main">
+      <div class="gestao-topbar mb-4">
+        <button id="menu-toggle" class="btn btn-outline-dark rounded-circle icon-btn" type="button" aria-label="Abrir ou fechar menu">
+          <i class="bi bi-list"></i>
+        </button>
+        <div>
+          <p id="module-kicker" class="text-uppercase text-muted fw-semibold mb-1">Principal</p>
+          <h2 id="module-title" class="fw-bold mb-0">Gestão de acesso</h2>
+        </div>
+        <button id="professor-logout" class="btn btn-outline-dark rounded-pill" type="button">
+          <i class="bi bi-box-arrow-left"></i>
+          Sair
+        </button>
+      </div>
+
+      <section id="access-module" class="gestao-panel module-panel">
+        <div class="tabs mb-4" role="tablist" aria-label="Alternar gestão">
+          <button id="payments-tab" class="tab is-active" type="button" data-view="payments">
+            <i class="bi bi-credit-card"></i>
+            Pagamentos
+          </button>
+          <button id="users-tab" class="tab" type="button" data-view="users">
+            <i class="bi bi-person-check"></i>
+            Logins
+          </button>
+        </div>
+
+        <div class="gestao-toolbar mb-3">
+          <select id="status-filter" class="form-select gestao-filter" aria-label="Filtrar por status de pagamento">
+            <option value="">Todos os pedidos</option>
+            <option value="pendente">Pendente</option>
+            <option value="em_atendimento">Em atendimento</option>
+            <option value="pago">Pago</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+          <select id="access-filter" class="form-select gestao-filter" aria-label="Filtrar por status de acesso" hidden>
+            <option value="">Todos os logins</option>
+            <option value="aguardando_pagamento">Aguardando pagamento</option>
+            <option value="ativo">Ativo</option>
+            <option value="pausado">Pausado</option>
+            <option value="bloqueado">Bloqueado</option>
+          </select>
+          <button id="refresh-btn" class="btn btn-dark rounded-pill" type="button">
+            <i class="bi bi-arrow-clockwise"></i>
+            Atualizar
+          </button>
+        </div>
+
+        <div id="gestao-feedback" class="gestao-feedback" role="status" aria-live="polite"></div>
+
+        <div class="table-responsive">
+          <table id="payments-table-view" class="table align-middle">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Aluno</th>
+                <th>Contato</th>
+                <th>Plano</th>
+                <th>Status</th>
+                <th>Data</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="payments-table">
+              <tr>
+                <td colspan="7" class="text-center text-muted py-4">Carregando pedidos...</td>
+              </tr>
+            </tbody>
+          </table>
+          <table id="users-table-view" class="table align-middle" hidden>
+            <thead>
+              <tr>
+                <th>Aluno</th>
+                <th>Contato</th>
+                <th>Matérias</th>
+                <th>Acesso</th>
+                <th>Pago em</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody id="users-table">
+              <tr>
+                <td colspan="6" class="text-center text-muted py-4">Carregando logins...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="pdfs-module" class="gestao-panel module-panel" hidden>
+        <form id="pdf-form" class="material-form mb-4">
+          <div class="row g-3">
+            <div class="col-md-5">
+              <label class="form-label">Título do PDF</label>
+              <input class="form-control" type="text" name="title" placeholder="Ex.: Apostila de interpretação" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Disciplina</label>
+              <select class="form-select" name="subject" required>
+                <option value="">Selecione</option>
+                <option value="Português">Português</option>
+                <option value="História">História</option>
+                <option value="Espanhol">Espanhol</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Módulo</label>
+              <input class="form-control" type="text" name="module" placeholder="Ex.: Módulo 1">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Arquivo PDF</label>
+              <input class="form-control" type="file" name="material" accept="application/pdf,.pdf" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Descrição</label>
+              <textarea class="form-control" name="description" rows="2" placeholder="Resumo para identificar o material"></textarea>
+            </div>
+          </div>
+          <button class="btn btn-dark rounded-pill mt-3" type="submit">
+            <i class="bi bi-upload"></i>
+            Publicar PDF
+          </button>
+        </form>
+        <div id="pdf-feedback" class="gestao-feedback" role="status" aria-live="polite"></div>
+        <div id="pdf-list" class="material-list"></div>
+      </section>
+
+      <section id="videos-module" class="gestao-panel module-panel" hidden>
+        <form id="video-form" class="material-form mb-4">
+          <div class="row g-3">
+            <div class="col-md-5">
+              <label class="form-label">Título da vídeo aula</label>
+              <input class="form-control" type="text" name="title" placeholder="Ex.: Revisão de história" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Disciplina</label>
+              <select class="form-select" name="subject" required>
+                <option value="">Selecione</option>
+                <option value="Português">Português</option>
+                <option value="História">História</option>
+                <option value="Espanhol">Espanhol</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Módulo</label>
+              <input class="form-control" type="text" name="module" placeholder="Ex.: Módulo 1">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Arquivo de vídeo</label>
+              <input class="form-control" type="file" name="material" accept="video/*" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Descrição</label>
+              <textarea class="form-control" name="description" rows="2" placeholder="Resumo para identificar a vídeo aula"></textarea>
+            </div>
+          </div>
+          <button class="btn btn-dark rounded-pill mt-3" type="submit">
+            <i class="bi bi-upload"></i>
+            Publicar vídeo aula
+          </button>
+        </form>
+        <div id="video-feedback" class="gestao-feedback" role="status" aria-live="polite"></div>
+        <div id="video-list" class="material-list"></div>
+      </section>
+
+      <section id="announcements-module" class="gestao-panel module-panel" hidden>
+        <form id="announcement-form" class="material-form mb-4" enctype="multipart/form-data">
+          <div class="row g-3">
+            <div class="col-md-5">
+              <label class="form-label">Título do comunicado</label>
+              <input class="form-control" type="text" name="title" placeholder="Ex.: Aula remarcada" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Disciplina</label>
+              <select class="form-select" name="subject">
+                <option value="">Todos os alunos</option>
+                <option value="Português">Português</option>
+                <option value="História">História</option>
+                <option value="Espanhol">Espanhol</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Módulo</label>
+              <input class="form-control" type="text" name="module" placeholder="Opcional">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Comunicado</label>
+              <textarea class="form-control" name="body" rows="3" placeholder="Escreva o aviso para os alunos" required></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Áudio ou vídeo do comunicado</label>
+              <input class="form-control" type="file" name="media" accept="audio/*,video/*">
+            </div>
+          </div>
+          <button class="btn btn-dark rounded-pill mt-3" type="submit">
+            <i class="bi bi-send"></i>
+            Publicar comunicado
+          </button>
+        </form>
+        <div id="announcement-feedback" class="gestao-feedback" role="status" aria-live="polite"></div>
+        <div id="announcement-list" class="material-list"></div>
+      </section>
+
+      <section id="events-module" class="gestao-panel module-panel" hidden>
+        <div class="calendar-toolbar mb-3">
+          <button id="teacher-calendar-prev" class="btn btn-outline-dark rounded-pill" type="button" aria-label="Mês anterior">
+            <i class="bi bi-chevron-left"></i>
+          </button>
+          <select id="teacher-calendar-month" class="form-select" aria-label="Mês"></select>
+          <input id="teacher-calendar-year" class="form-control" type="number" min="2020" max="2100" aria-label="Ano">
+          <button id="teacher-calendar-next" class="btn btn-outline-dark rounded-pill" type="button" aria-label="Próximo mês">
+            <i class="bi bi-chevron-right"></i>
+          </button>
+        </div>
+        <div id="teacher-events-calendar" class="calendar-grid mb-3" aria-label="Calendário de eventos"></div>
+        <div id="teacher-selected-day-events" class="material-list mb-4"></div>
+        <form id="teacher-event-form" class="material-form mb-4">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Enviar para</label>
+              <select id="teacher-event-target" class="form-select" name="target" required>
+                <option value="">Carregando logins...</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Aula ou compromisso</label>
+              <input class="form-control" type="text" name="title" placeholder="Ex.: Aula de revisão" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Disciplina</label>
+              <select class="form-select" name="subject">
+                <option value="">Sem disciplina</option>
+                <option value="Português">Português</option>
+                <option value="História">História</option>
+                <option value="Espanhol">Espanhol</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Data e hora</label>
+              <input class="form-control" type="datetime-local" name="startsAt" required>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Observações</label>
+              <input class="form-control" type="text" name="notes" placeholder="Opcional">
+            </div>
+          </div>
+          <button class="btn btn-dark rounded-pill mt-3" type="submit">
+            <i class="bi bi-calendar-plus"></i>
+            Adicionar evento
+          </button>
+        </form>
+        <div id="teacher-events-feedback" class="gestao-feedback" role="status" aria-live="polite"></div>
+        <div id="teacher-events-list" class="material-list"></div>
+      </section>
+
+      <section id="grades-module" class="gestao-panel module-panel" hidden>
+        <form id="grade-form" class="material-form mb-4">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Aluno</label>
+              <select id="grade-user" class="form-select" name="userId" required>
+                <option value="">Carregando alunos...</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Disciplina</label>
+              <select class="form-select" name="subject" required>
+                <option value="">Selecione</option>
+                <option value="Português">Português</option>
+                <option value="História">História</option>
+                <option value="Espanhol">Espanhol</option>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Atividade ou avaliação</label>
+              <input class="form-control" type="text" name="title" placeholder="Ex.: Prova do módulo 1" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Nota</label>
+              <input class="form-control" type="number" name="score" min="0" step="0.1" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Nota máxima</label>
+              <input class="form-control" type="number" name="maxScore" min="0.1" step="0.1" value="10" required>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Observação</label>
+              <input class="form-control" type="text" name="notes" placeholder="Opcional">
+            </div>
+          </div>
+          <button class="btn btn-dark rounded-pill mt-3" type="submit">
+            <i class="bi bi-check2-circle"></i>
+            Registrar nota
+          </button>
+        </form>
+        <div id="grade-feedback" class="gestao-feedback" role="status" aria-live="polite"></div>
+        <div id="grade-list" class="material-list"></div>
+      </section>
+
+      <section id="paymentCatalog-module" class="gestao-panel module-panel" hidden>
+        <div class="catalog-header mb-3">
+          <div>
+            <h3 class="catalog-form-title mb-1">Pré-visualização dos planos</h3>
+            <p class="text-muted mb-0">Veja como os cursos aparecem na tela de pagamento e edite os cards diretamente por aqui.</p>
+          </div>
+          <button id="add-course-shortcut" class="btn btn-dark rounded-pill" type="button">
+            <i class="bi bi-plus-lg"></i>
+            Adicionar curso
+          </button>
+        </div>
+        <div id="catalog-feedback" class="gestao-feedback" role="status" aria-live="polite"></div>
+        <div id="catalog-list" class="material-list mb-4"></div>
+
+        <div id="catalog-editor" class="catalog-editor mb-4" hidden>
+          <div class="catalog-editor-heading">
+            <h3 id="catalog-editor-title" class="catalog-form-title mb-1">Editar catálogo</h3>
+            <button id="catalog-editor-close" class="btn btn-outline-dark rounded-pill btn-sm" type="button">
+              Fechar
+            </button>
+          </div>
+        <div class="catalog-grid">
+          <form id="course-form" class="material-form catalog-form">
+            <input type="hidden" name="id">
+            <h3 class="catalog-form-title">Curso</h3>
+            <div class="row g-3">
+              <div class="col-md-7">
+                <label class="form-label">Nome do curso</label>
+                <input class="form-control" type="text" name="name" placeholder="Ex.: Matemática" required>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Ícone</label>
+                <input class="form-control" type="text" name="icon" placeholder="📚">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Ordem</label>
+                <input class="form-control" type="number" name="sortOrder" value="0">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Descrição</label>
+                <input class="form-control" type="text" name="description" placeholder="Opcional">
+              </div>
+              <div class="col-12">
+                <label class="subject-check">
+                  <input type="checkbox" name="isActive" checked>
+                  <span>Mostrar na tela de pagamento</span>
+                </label>
+              </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap mt-3">
+              <button class="btn btn-dark rounded-pill" type="submit">
+                <i class="bi bi-check2-circle"></i>
+                Salvar curso
+              </button>
+              <button id="course-cancel" class="btn btn-outline-dark rounded-pill" type="button" hidden>Cancelar edição</button>
+            </div>
+          </form>
+
+          <form id="plan-form" class="material-form catalog-form">
+            <input type="hidden" name="id">
+            <h3 class="catalog-form-title">Plano</h3>
+            <div class="row g-3">
+              <div class="col-md-5">
+                <label class="form-label">Curso</label>
+                <select id="plan-course" class="form-select" name="courseId" required>
+                  <option value="">Cadastre um curso primeiro</option>
+                </select>
+              </div>
+              <div class="col-md-7">
+                <label class="form-label">Título do plano</label>
+                <input class="form-control" type="text" name="title" placeholder="Ex.: Aula Avulsa" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Subtítulo</label>
+                <input class="form-control" type="text" name="subtitle" placeholder="Ex.: Ensino Médio">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Preço principal</label>
+                <input class="form-control" type="text" name="priceText" placeholder="R$ 80,00 /aula" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Preço extra</label>
+                <input class="form-control" type="text" name="secondaryPriceText" placeholder="Opcional">
+              </div>
+              <div class="col-md-8">
+                <label class="form-label">Benefícios</label>
+                <textarea class="form-control" name="features" rows="4" placeholder="Digite um benefício por linha"></textarea>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Selo</label>
+                <input class="form-control mb-3" type="text" name="badge" placeholder="Ex.: Acompanhamento">
+                <label class="form-label">Ordem</label>
+                <input class="form-control" type="number" name="sortOrder" value="0">
+              </div>
+              <div class="col-12 d-flex gap-4 flex-wrap">
+                <label class="subject-check">
+                  <input type="checkbox" name="isHighlighted">
+                  <span>Destacar plano</span>
+                </label>
+                <label class="subject-check">
+                  <input type="checkbox" name="isActive" checked>
+                  <span>Mostrar na tela de pagamento</span>
+                </label>
+              </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap mt-3">
+              <button class="btn btn-dark rounded-pill" type="submit">
+                <i class="bi bi-check2-circle"></i>
+                Salvar plano
+              </button>
+              <button id="plan-cancel" class="btn btn-outline-dark rounded-pill" type="button" hidden>Cancelar edição</button>
+            </div>
+          </form>
+        </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/theme.js?v=20260515-theme"></script>
+  <script src="gestao.js?v=20260515-cursos-planos-4"></script>
+</body>
+</html>
