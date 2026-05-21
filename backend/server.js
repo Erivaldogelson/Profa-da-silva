@@ -43,6 +43,7 @@ const videoUploadsDir = path.join(uploadsDir, "videos");
 const profileUploadsDir = path.join(uploadsDir, "profiles");
 const announcementUploadsDir = path.join(uploadsDir, "announcements");
 const sessionSecret = process.env.SESSION_SECRET || "troque-esta-chave";
+const isProduction = process.env.NODE_ENV === "production";
 const otpExpiryMinutes = Number(process.env.OTP_EXPIRY_MINUTES || 10);
 const emailFrom =
   process.env.EMAIL_FROM ||
@@ -80,8 +81,12 @@ const mailTransport = smtpConfigured
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
-    })
+  })
   : null;
+
+if (isProduction && sessionSecret === "troque-esta-chave") {
+  throw new Error("Configure SESSION_SECRET no ambiente de produção.");
+}
 
 [uploadsDir, pdfUploadsDir, videoUploadsDir, profileUploadsDir, announcementUploadsDir].forEach((dir) => {
   if (!fs.existsSync(dir)) {
@@ -686,7 +691,31 @@ if (googleConfigured) {
   );
 }
 
-app.use(express.json());
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' https://cdn.jsdelivr.net",
+      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
+      "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com",
+      "img-src 'self' data: blob:",
+      "media-src 'self' blob:",
+      "connect-src 'self'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join("; ")
+  );
+  next();
+});
+app.use(express.json({ limit: "1mb" }));
 app.use(
   session({
     secret: sessionSecret,
@@ -695,7 +724,7 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: "lax",
-      secure: false,
+      secure: isProduction,
       maxAge: 1000 * 60 * 60 * 24 * 7,
     },
   })
