@@ -6,6 +6,9 @@ const otpCode = document.getElementById("otp-code");
 const otpSubtitle = document.getElementById("otp-subtitle");
 const otpBack = document.getElementById("otp-back");
 const otpResend = document.getElementById("otp-resend");
+const isGitHubPages = window.location.hostname.endsWith("github.io");
+const pagesPreviewMessage =
+  "Esta é a pré-visualização do GitHub Pages. A área do professor precisa do servidor Node. Rode npm start e acesse http://localhost:3000.";
 
 function setFeedback(message = "", type = "") {
   feedback.textContent = message;
@@ -38,6 +41,10 @@ function showOtpStep(data) {
 }
 
 async function sendRequest(url, payload) {
+  if (isGitHubPages) {
+    throw new Error(pagesPreviewMessage);
+  }
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -116,4 +123,6 @@ const params = new URLSearchParams(window.location.search);
 
 if (params.get("erro") === "permissao") {
   setFeedback("Entre com uma conta de professor para acessar a gestão.", "error");
+} else if (isGitHubPages) {
+  setFeedback(pagesPreviewMessage, "success");
 }

@@ -24,6 +24,9 @@ const forgotPasswordLink = document.getElementById("forgot-password-link");
 const forgotBack = document.getElementById("forgot-back");
 const paymentPath = "/pagamento";
 const studentPortalPath = "/aluno/";
+const isGitHubPages = window.location.hostname.endsWith("github.io");
+const pagesPreviewMessage =
+  "Esta é a pré-visualização do GitHub Pages. Login, cadastro e pagamentos precisam do servidor Node. Rode npm start e acesse http://localhost:3000.";
 
 function setMode(mode) {
   tabs.forEach((tab) => {
@@ -138,6 +141,10 @@ function showOtpStep({
 }
 
 async function sendAuthRequest(url, payload) {
+  if (isGitHubPages) {
+    throw new Error(pagesPreviewMessage);
+  }
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -156,6 +163,11 @@ async function sendAuthRequest(url, payload) {
 }
 
 async function loadSession() {
+  if (isGitHubPages) {
+    updateSession(null);
+    return;
+  }
+
   const response = await fetch("/api/auth/me");
 
   if (!response.ok) {
@@ -169,6 +181,14 @@ async function loadSession() {
 
 async function loadProviders() {
   try {
+    if (isGitHubPages) {
+      googleBtn.classList.add("is-disabled");
+      googleBtn.setAttribute("aria-disabled", "true");
+      googleBtn.title = "Login social precisa do servidor Node.";
+      setFeedback(pagesPreviewMessage, "success");
+      return;
+    }
+
     const response = await fetch("/api/auth/providers");
     const providers = await response.json();
 

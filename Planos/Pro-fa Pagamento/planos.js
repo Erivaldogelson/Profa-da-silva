@@ -2,6 +2,9 @@ const catalog = document.getElementById("plans-catalog");
 const feedback = document.getElementById("payment-feedback");
 const gestaoLink = document.getElementById("gestao-link");
 let currentUser = null;
+const isGitHubPages = window.location.hostname.endsWith("github.io");
+const pagesPreviewMessage =
+  "Pré-visualização do GitHub Pages: a escolha do plano abre o WhatsApp, mas o registro no sistema precisa do servidor Node.";
 
 const fallbackCourses = [
   {
@@ -170,6 +173,12 @@ function escapeHtml(value) {
 }
 
 async function loadCurrentUser() {
+  if (isGitHubPages) {
+    currentUser = null;
+    setFeedback(pagesPreviewMessage, "success");
+    return;
+  }
+
   const response = await fetch("/api/auth/me");
 
   if (!response.ok) {
@@ -191,6 +200,10 @@ async function loadCurrentUser() {
 }
 
 async function registerPayment(materia, plano) {
+  if (isGitHubPages) {
+    return null;
+  }
+
   const response = await fetch("/api/payments", {
     method: "POST",
     headers: {
@@ -269,6 +282,11 @@ function renderCatalog(courses) {
 
 async function loadCatalog() {
   try {
+    if (isGitHubPages) {
+      renderCatalog(fallbackCourses);
+      return;
+    }
+
     const response = await fetch("/api/payment-catalog");
     const data = await response.json().catch(() => ({}));
 
@@ -292,16 +310,20 @@ async function choosePlan(button) {
     button.disabled = true;
     setFeedback("Registrando seu pedido com segurança...", "success");
     const payment = await registerPayment(materia, plano);
+    const pedido = payment?.id ? `Pedido registrado no sistema: #${payment.id}.` : "";
 
     const mensagem = `Olá Professora Mariane!
 Tudo bem?
 Tenho interesse em aulas de *${materia}*.
 Plano escolhido: *${plano}*.
-Pedido registrado no sistema: #${payment.id}.`;
+${pedido}`;
 
     const telefone = "5534999702517";
 
-    setFeedback(`Pedido #${payment.id} registrado. Abrindo WhatsApp...`, "success");
+    setFeedback(
+      payment?.id ? `Pedido #${payment.id} registrado. Abrindo WhatsApp...` : "Abrindo WhatsApp...",
+      "success"
+    );
     window.open(
       `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`,
       "_blank"
