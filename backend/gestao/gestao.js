@@ -405,8 +405,10 @@ function renderAnnouncements(announcements) {
           ? `<video class="announcement-media" controls src="/api/gestao/announcements/${announcement.id}/media"></video>`
           : announcement.media_type === "audio"
             ? `<audio class="announcement-media" controls src="/api/gestao/announcements/${announcement.id}/media"></audio>`
-          : announcement.media_type === "pdf"
-            ? `<a class="announcement-file btn btn-outline-dark rounded-pill btn-sm" href="/api/gestao/announcements/${announcement.id}/media" target="_blank" rel="noreferrer"><i class="bi bi-file-earmark-pdf"></i> Abrir PDF</a>`
+          : "";
+      const pdfFile =
+        announcement.pdf_path || announcement.media_type === "pdf"
+          ? `<a class="announcement-file btn btn-outline-dark rounded-pill btn-sm" href="/api/gestao/announcements/${announcement.id}/pdf" target="_blank" rel="noreferrer"><i class="bi bi-file-earmark-pdf"></i> Abrir PDF</a>`
           : "";
       const audience = announcement.target_user
         ? `${announcement.target_user.email || announcement.target_user.phoneNumber || announcement.target_user.name}`
@@ -420,6 +422,7 @@ function renderAnnouncements(announcements) {
             </div>
             <p class="mb-0 mt-2 text-muted">${escapeHtml(announcement.body)}</p>
             ${media}
+            ${pdfFile}
           </div>
           <div class="material-actions">
             <button class="btn btn-outline-danger rounded-pill btn-sm announcement-delete" type="button" data-announcement-id="${announcement.id}">

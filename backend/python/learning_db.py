@@ -44,6 +44,9 @@ def init_db(connection):
             media_url TEXT,
             media_mime_type TEXT,
             media_original_name TEXT,
+            pdf_path TEXT,
+            pdf_mime_type TEXT,
+            pdf_original_name TEXT,
             target_user_id TEXT,
             created_by TEXT NOT NULL,
             created_at TEXT NOT NULL,
@@ -108,6 +111,9 @@ def ensure_announcement_media_columns(connection):
         "media_url": "TEXT",
         "media_mime_type": "TEXT",
         "media_original_name": "TEXT",
+        "pdf_path": "TEXT",
+        "pdf_mime_type": "TEXT",
+        "pdf_original_name": "TEXT",
         "target_user_id": "TEXT",
     }
     for column, column_type in media_columns.items():
@@ -146,6 +152,9 @@ def create_announcement(connection, payload):
     media_url = str(payload.get("mediaUrl", "")).strip()
     media_mime_type = str(payload.get("mediaMimeType", "")).strip()
     media_original_name = str(payload.get("mediaOriginalName", "")).strip()
+    pdf_path = str(payload.get("pdfPath", "")).strip()
+    pdf_mime_type = str(payload.get("pdfMimeType", "")).strip()
+    pdf_original_name = str(payload.get("pdfOriginalName", "")).strip()
     target_user_id = str(payload.get("targetUserId", "")).strip()
     created_by = str(payload.get("createdBy", "")).strip()
 
@@ -157,9 +166,10 @@ def create_announcement(connection, payload):
         """
         INSERT INTO announcements (
             title, body, subject, module, media_type, media_path, media_url,
-            media_mime_type, media_original_name, target_user_id, created_by, created_at, updated_at
+            media_mime_type, media_original_name, pdf_path, pdf_mime_type,
+            pdf_original_name, target_user_id, created_by, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             title,
@@ -171,6 +181,9 @@ def create_announcement(connection, payload):
             media_url,
             media_mime_type,
             media_original_name,
+            pdf_path,
+            pdf_mime_type,
+            pdf_original_name,
             target_user_id,
             created_by,
             now,

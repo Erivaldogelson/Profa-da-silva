@@ -179,19 +179,74 @@ const announcementUpload = multer({
     fileSize: 500 * 1024 * 1024,
   },
   fileFilter(req, file, callback) {
-    const isValidAnnouncementFile =
-      file.mimetype.startsWith("audio/") ||
-      file.mimetype.startsWith("video/") ||
-      file.mimetype === "application/pdf";
+    if (file.fieldname === "media") {
+      if (!file.mimetype.startsWith("audio/") && !file.mimetype.startsWith("video/")) {
+        callback(new Error("Envie um arquivo de áudio ou vídeo válido."));
+        return;
+      }
 
-    if (!isValidAnnouncementFile) {
-      callback(new Error("Envie um arquivo de áudio, vídeo ou PDF válido."));
+      callback(null, true);
       return;
     }
 
-    callback(null, true);
+    if (file.fieldname === "pdf") {
+      if (file.mimetype !== "application/pdf") {
+        callback(new Error("Envie um PDF válido."));
+        return;
+      }
+
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error("Campo de anexo inválido."));
   },
 });
+
+function getUploadedAnnouncementFile(req, fieldName) {
+  const files = req.files?.[fieldName];
+  return Array.isArray(files) ? files[0] || null : null;
+}
+
+function getAnnouncementPdfPath(announcement) {
+  if (announcement?.pdf_path) {
+    return announcement.pdf_path;
+  }
+
+  if (announcement?.media_type === "pdf" && announcement?.media_path) {
+    return announcement.media_path;
+  }
+
+  return "";
+}
+
+function getAnnouncementPdfName(announcement) {
+  return announcement?.pdf_original_name || announcement?.media_original_name || "comunicado.pdf";
+}
+
+function sendAnnouncementPdfFile(req, res, announcement) {
+  const pdfPath = getAnnouncementPdfPath(announcement);
+
+  if (!pdfPath) {
+    return res.status(404).json({ message: "Este comunicado não possui PDF." });
+  }
+
+  const resolvedAnnouncements = path.resolve(announcementUploadsDir);
+  const resolvedFile = path.resolve(pdfPath);
+  const relativePath = path.relative(resolvedAnnouncements, resolvedFile);
+
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    return res.status(400).json({ message: "Arquivo inválido." });
+  }
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `inline; filename="${path.basename(getAnnouncementPdfName(announcement)).replace(/"/g, "")}"`
+  );
+
+  return res.sendFile(resolvedFile);
+}
 
 function hasRealEnvValue(value, placeholderSnippets = []) {
   const normalized = String(value || "").trim();
@@ -1902,6 +1957,22 @@ app.get("/api/aluno/announcements/:id/media", requirePaidAccess, async (req, res
   }
 });
 
+app.get("/api/aluno/announcements/:id/pdf", requirePaidAccess, async (req, res) => {
+  try {
+    const announcement = await runLearningDb("get-announcement", { id: req.params.id });
+
+    if (!canAccessAnnouncement(req.user, announcement)) {
+      return res.status(403).json({
+        message: "Este comunicado não está liberado para as suas matérias.",
+      });
+    }
+
+    return sendAnnouncementPdfFile(req, res, announcement);
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+});
+
 app.get("/api/aluno/events", requirePaidAccess, async (req, res) => {
   try {
     const events = await runLearningDb("list-events", { userId: req.user.id });
@@ -2515,14 +2586,30 @@ app.get("/api/gestao/announcements/:id/media", requireGestao, async (req, res) =
   }
 });
 
-app.post("/api/gestao/announcements", requireGestao, announcementUpload.single("media"), async (req, res) => {
+app.get("/api/gestao/announcements/:id/pdf", requireGestao, async (req, res) => {
   try {
-    const mediaType = req.file?.mimetype.startsWith("video/")
+    const announcement = await runLearningDb("get-announcement", { id: req.params.id });
+    return sendAnnouncementPdfFile(req, res, announcement);
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  }
+});
+
+app.post(
+  "/api/gestao/announcements",
+  requireGestao,
+  announcementUpload.fields([
+    { name: "media", maxCount: 1 },
+    { name: "pdf", maxCount: 1 },
+  ]),
+  async (req, res) => {
+  try {
+    const mediaFile = getUploadedAnnouncementFile(req, "media");
+    const pdfFile = getUploadedAnnouncementFile(req, "pdf");
+    const mediaType = mediaFile?.mimetype.startsWith("video/")
       ? "video"
-      : req.file?.mimetype.startsWith("audio/")
+      : mediaFile?.mimetype.startsWith("audio/")
         ? "audio"
-        : req.file?.mimetype === "application/pdf"
-          ? "pdf"
         : "";
     const announcement = await runLearningDb("create-announcement", {
       title: req.body?.title,
@@ -2530,10 +2617,13 @@ app.post("/api/gestao/announcements", requireGestao, announcementUpload.single("
       subject: req.body?.subject || "",
       module: req.body?.module || "",
       mediaType,
-      mediaPath: req.file?.path || "",
+      mediaPath: mediaFile?.path || "",
       mediaUrl: "",
-      mediaMimeType: req.file?.mimetype || "",
-      mediaOriginalName: req.file?.originalname || "",
+      mediaMimeType: mediaFile?.mimetype || "",
+      mediaOriginalName: mediaFile?.originalname || "",
+      pdfPath: pdfFile?.path || "",
+      pdfMimeType: pdfFile?.mimetype || "",
+      pdfOriginalName: pdfFile?.originalname || "",
       targetUserId: req.body?.targetUserId || "",
       createdBy: req.user.id,
     });
@@ -2554,6 +2644,9 @@ app.delete("/api/gestao/announcements/:id", requireGestao, async (req, res) => {
     });
     if (announcement.media_path) {
       fs.unlink(announcement.media_path, () => {});
+    }
+    if (announcement.pdf_path) {
+      fs.unlink(announcement.pdf_path, () => {});
     }
     return res.json({ message: "Comunicado apagado.", announcement });
   } catch (error) {

@@ -255,9 +255,13 @@
               <label class="form-label">Comunicado</label>
               <textarea class="form-control" name="body" rows="3" placeholder="Escreva o aviso para os alunos" required></textarea>
             </div>
-            <div class="col-12">
-              <label class="form-label">Áudio, vídeo ou PDF do comunicado</label>
-              <input class="form-control" type="file" name="media" accept="audio/*,video/*,application/pdf,.pdf">
+            <div class="col-md-6">
+              <label class="form-label">Áudio ou vídeo do comunicado</label>
+              <input class="form-control" type="file" name="media" accept="audio/*,video/*">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">PDF do comunicado</label>
+              <input class="form-control" type="file" name="pdf" accept="application/pdf,.pdf">
             </div>
           </div>
           <button class="btn btn-dark rounded-pill mt-3" type="submit">
