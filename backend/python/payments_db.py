@@ -581,12 +581,19 @@ def get_payment(connection, payment_id):
 
 def list_payments(connection, payload):
     status = str(payload.get("status", "")).strip()
+    user_id = str(payload.get("userId", "")).strip()
     params = []
-    where = ""
+    filters = []
 
     if status:
-        where = "WHERE status = ?"
+        filters.append("status = ?")
         params.append(status)
+
+    if user_id:
+        filters.append("user_id = ?")
+        params.append(user_id)
+
+    where = f"WHERE {' AND '.join(filters)}" if filters else ""
 
     rows = connection.execute(
         f"""

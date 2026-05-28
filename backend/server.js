@@ -233,6 +233,116 @@ function canAccessPaidArea(user) {
   return getUserRole(user) === "gestao" || user?.accessStatus === "ativo";
 }
 
+function getCurrentPaymentCycleStart(referenceDate = new Date()) {
+  const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 5, 0, 0, 0, 0);
+
+  if (referenceDate.getDate() < 5) {
+    start.setMonth(start.getMonth() - 1);
+  }
+
+  return start;
+}
+
+function getNextPaymentClosingDate(referenceDate = new Date()) {
+  const closingDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 5, 12, 0, 0, 0);
+
+  if (referenceDate.getDate() > 5) {
+    closingDate.setMonth(closingDate.getMonth() + 1);
+  }
+
+  return closingDate;
+}
+
+function formatBillingDate(value) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(value);
+}
+
+function paymentBelongsToCurrentCycle(payment, cycleStart) {
+  const paidDate = new Date(payment.updated_at || payment.created_at || "");
+  return payment.status === "pago" && Number.isFinite(paidDate.getTime()) && paidDate >= cycleStart;
+}
+
+async function getStudentBillingStatus(user) {
+  if (!user || getUserRole(user) === "gestao") {
+    return {
+      status: "ok",
+      requiresPayment: false,
+    };
+  }
+
+  const today = new Date();
+  const todayDay = today.getDate();
+  const cycleStart = getCurrentPaymentCycleStart(today);
+  const nextClosingDate = getNextPaymentClosingDate(today);
+  const payments = await runPaymentDb("list-payments", { userId: user.id });
+  const hasPaidCurrentCycle = payments.some((payment) => paymentBelongsToCurrentCycle(payment, cycleStart));
+
+  if (hasPaidCurrentCycle) {
+    return {
+      status: "ok",
+      requiresPayment: false,
+      hasPaidCurrentCycle,
+      closingDay: 5,
+      warningDay: 10,
+      cancellationDay: 12,
+      nextClosingDate: nextClosingDate.toISOString(),
+      message: `Pagamento do ciclo atual confirmado. Próximo fechamento: ${formatBillingDate(nextClosingDate)}.`,
+    };
+  }
+
+  if (todayDay >= 12) {
+    return {
+      status: "blocked",
+      requiresPayment: true,
+      hasPaidCurrentCycle,
+      closingDay: 5,
+      warningDay: 10,
+      cancellationDay: 12,
+      nextClosingDate: nextClosingDate.toISOString(),
+      message:
+        "Seu acesso foi pausado automaticamente porque o pagamento deste mês não foi confirmado até o dia 12.",
+    };
+  }
+
+  if (todayDay >= 10) {
+    return {
+      status: "warning",
+      requiresPayment: true,
+      hasPaidCurrentCycle,
+      closingDay: 5,
+      warningDay: 10,
+      cancellationDay: 12,
+      nextClosingDate: nextClosingDate.toISOString(),
+      message:
+        "Seu pagamento fecha todo dia 5. Como o pagamento deste mês ainda não foi confirmado, seu acesso será retirado no dia 12.",
+    };
+  }
+
+  return {
+    status: "ok",
+    requiresPayment: false,
+    hasPaidCurrentCycle,
+    closingDay: 5,
+    warningDay: 10,
+    cancellationDay: 12,
+    nextClosingDate: nextClosingDate.toISOString(),
+    message: `Seu pagamento fecha todo dia 5. Próximo fechamento: ${formatBillingDate(nextClosingDate)}.`,
+  };
+}
+
+function pauseUserForMissingPayment(user) {
+  const updatedUser = updateUserAccess(
+    user.id,
+    "pausado",
+    "Acesso pausado automaticamente: pagamento mensal não confirmado até o dia 12."
+  );
+  return updatedUser || findUserById(user.id) || user;
+}
+
 function shouldSkipPayment(user) {
   return getUserRole(user) !== "gestao" && user?.accessStatus === "ativo";
 }
@@ -362,15 +472,37 @@ function requireGestao(req, res, next) {
   return next();
 }
 
-function requirePaidAccess(req, res, next) {
+async function requirePaidAccess(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ message: "Faça login para continuar." });
+  }
+
+  let billing = null;
+
+  try {
+    billing = await getStudentBillingStatus(req.user);
+  } catch (error) {
+    return res.status(500).json({
+      message: "Não foi possível verificar a situação do pagamento.",
+    });
+  }
+
+  if (billing.status === "blocked" && canAccessPaidArea(req.user)) {
+    req.user = pauseUserForMissingPayment(req.user);
+  }
+
+  if (billing.status === "blocked") {
+    return res.status(402).json({
+      message: billing.message,
+      billing,
+    });
   }
 
   if (!canAccessPaidArea(req.user)) {
     return res.status(402).json({
       message:
         "Seu acesso ainda aguarda confirmação do pagamento pela gestão.",
+      billing,
     });
   }
 
@@ -1631,11 +1763,17 @@ app.get("/pos-login", requireAuth, (req, res) => {
   return res.redirect("/pagamento");
 });
 
-app.get("/api/aluno/status", requirePaidAccess, (req, res) => {
-  return res.json({
-    message: "Acesso liberado.",
-    user: sanitizeUser(req.user),
-  });
+app.get("/api/aluno/status", requirePaidAccess, async (req, res) => {
+  try {
+    const billing = await getStudentBillingStatus(req.user);
+    return res.json({
+      message: "Acesso liberado.",
+      user: sanitizeUser(req.user),
+      billing,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Não foi possível carregar o status do aluno." });
+  }
 });
 
 app.get("/uploads/profiles/:fileName", requirePaidAccess, sendProfileFile);
@@ -1820,6 +1958,7 @@ app.get("/api/aluno/grades", requirePaidAccess, async (req, res) => {
 
 app.get("/api/aluno/dashboard", requirePaidAccess, async (req, res) => {
   try {
+    const billing = await getStudentBillingStatus(req.user);
     const subjects = listUserSubjects(req.user.id);
     const subjectKeys = subjects.map(normalizeSubjectName);
     const allMaterials = await runMaterialsDb("list-materials", {});
@@ -1841,6 +1980,7 @@ app.get("/api/aluno/dashboard", requirePaidAccess, async (req, res) => {
     });
 
     return res.json({
+      billing,
       subjects,
       stats: {
         subjects: subjects.length,

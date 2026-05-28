@@ -7,6 +7,7 @@ const studentTitle = document.getElementById("student-title");
 const studentSummaryPanel = document.getElementById("student-summary-panel");
 const studentName = document.getElementById("student-name");
 const studentInfo = document.getElementById("student-info");
+const billingAlert = document.getElementById("billing-alert");
 const studentSubjects = document.getElementById("student-subjects");
 const materialsFeedback = document.getElementById("materials-feedback");
 const materialsList = document.getElementById("materials-list");
@@ -176,6 +177,20 @@ function applyUser(user) {
   populateProfileForm(user);
 }
 
+function renderBillingAlert(billing) {
+  if (!billing || billing.status === "ok" || !billing.requiresPayment) {
+    billingAlert.hidden = true;
+    billingAlert.textContent = "";
+    billingAlert.classList.remove("is-warning", "is-danger");
+    return;
+  }
+
+  billingAlert.hidden = false;
+  billingAlert.textContent = billing.message;
+  billingAlert.classList.toggle("is-warning", billing.status === "warning");
+  billingAlert.classList.toggle("is-danger", billing.status === "blocked");
+}
+
 function renderSubjects(subjects) {
   currentSubjects = subjects;
 
@@ -332,6 +347,8 @@ async function loadDashboard() {
   if (!response.ok) {
     return;
   }
+
+  renderBillingAlert(data.billing);
 
   const stats = data.stats || {};
   document.getElementById("stat-subjects").textContent = stats.subjects || 0;
@@ -601,6 +618,7 @@ async function loadStudentArea() {
   }
 
   applyUser(data.user);
+  renderBillingAlert(data.billing);
   setModule(currentModule);
 }
 

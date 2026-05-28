@@ -71,6 +71,18 @@ html[data-theme="dark"] .grade-percent {
   color: #181818;
 }
 
+html[data-theme="dark"] .billing-alert.is-warning {
+  background: #352b16;
+  border-color: #8f7332;
+  color: #f6df9a;
+}
+
+html[data-theme="dark"] .billing-alert.is-danger {
+  background: #351b1b;
+  border-color: #9b4a4a;
+  color: #f4b3b3;
+}
+
 html[data-theme="dark"] .chart-track,
 html[data-theme="dark"] .profile-photo-preview {
   background: #302b25;
@@ -253,6 +265,24 @@ body {
   padding: 8px 14px;
   background: var(--beige);
   font-weight: 700;
+}
+
+.billing-alert {
+  border: 1px solid #e0c46c;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-weight: 700;
+}
+
+.billing-alert.is-warning {
+  background: #fff7dc;
+  color: #6d4f00;
+}
+
+.billing-alert.is-danger {
+  background: #fff0f0;
+  border-color: #e2a4a4;
+  color: #862222;
 }
 
 .access-card,
