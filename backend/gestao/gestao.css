@@ -752,6 +752,13 @@ html[data-theme="dark"] .calendar-expanded-item em {
   background: #111;
 }
 
+.announcement-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
 .material-actions {
   display: flex;
   gap: 8px;

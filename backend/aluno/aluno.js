@@ -490,6 +490,8 @@ function renderAnnouncements(announcements) {
           ? `<video class="announcement-media" controls src="/api/aluno/announcements/${announcement.id}/media"></video>`
           : announcement.media_type === "audio"
             ? `<audio class="announcement-media" controls src="/api/aluno/announcements/${announcement.id}/media"></audio>`
+          : announcement.media_type === "pdf"
+            ? `<a class="announcement-file btn btn-outline-dark rounded-pill btn-sm" href="/api/aluno/announcements/${announcement.id}/media" target="_blank" rel="noreferrer"><i class="bi bi-file-earmark-pdf"></i> Abrir PDF</a>`
           : "";
       return `
         <article class="student-item">

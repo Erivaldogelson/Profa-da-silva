@@ -179,8 +179,13 @@ const announcementUpload = multer({
     fileSize: 500 * 1024 * 1024,
   },
   fileFilter(req, file, callback) {
-    if (!file.mimetype.startsWith("audio/") && !file.mimetype.startsWith("video/")) {
-      callback(new Error("Envie um arquivo de áudio ou vídeo válido."));
+    const isValidAnnouncementFile =
+      file.mimetype.startsWith("audio/") ||
+      file.mimetype.startsWith("video/") ||
+      file.mimetype === "application/pdf";
+
+    if (!isValidAnnouncementFile) {
+      callback(new Error("Envie um arquivo de áudio, vídeo ou PDF válido."));
       return;
     }
 
@@ -2512,7 +2517,13 @@ app.get("/api/gestao/announcements/:id/media", requireGestao, async (req, res) =
 
 app.post("/api/gestao/announcements", requireGestao, announcementUpload.single("media"), async (req, res) => {
   try {
-    const mediaType = req.file?.mimetype.startsWith("video/") ? "video" : req.file?.mimetype.startsWith("audio/") ? "audio" : "";
+    const mediaType = req.file?.mimetype.startsWith("video/")
+      ? "video"
+      : req.file?.mimetype.startsWith("audio/")
+        ? "audio"
+        : req.file?.mimetype === "application/pdf"
+          ? "pdf"
+        : "";
     const announcement = await runLearningDb("create-announcement", {
       title: req.body?.title,
       body: req.body?.body,
