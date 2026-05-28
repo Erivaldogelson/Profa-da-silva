@@ -45,6 +45,7 @@ def init_db(connection):
             file_url TEXT NOT NULL,
             mime_type TEXT NOT NULL,
             size_bytes INTEGER NOT NULL,
+            target_user_id TEXT,
             created_by TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
@@ -59,6 +60,8 @@ def init_db(connection):
     columns = [row["name"] for row in connection.execute("PRAGMA table_info(teaching_materials)").fetchall()]
     if "module" not in columns:
         connection.execute("ALTER TABLE teaching_materials ADD COLUMN module TEXT")
+    if "target_user_id" not in columns:
+        connection.execute("ALTER TABLE teaching_materials ADD COLUMN target_user_id TEXT")
     connection.commit()
 
 
@@ -82,9 +85,9 @@ def create_material(connection, payload):
         """
         INSERT INTO teaching_materials (
             type, title, description, subject, module, original_name, file_name, file_path,
-            file_url, mime_type, size_bytes, created_by, created_at
+            file_url, mime_type, size_bytes, target_user_id, created_by, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             material_type,
@@ -98,6 +101,7 @@ def create_material(connection, payload):
             str(payload["fileUrl"]).strip(),
             str(payload["mimeType"]).strip(),
             int(payload["sizeBytes"]),
+            str(payload.get("targetUserId", "")).strip(),
             str(payload["createdBy"]).strip(),
             now,
         ),
@@ -125,6 +129,7 @@ def update_material(connection, payload):
     description = str(payload.get("description", material["description"] or "")).strip()
     subject = str(payload.get("subject") or material["subject"] or "").strip()
     module = str(payload.get("module") or material["module"] or "").strip()
+    target_user_id = str(payload.get("targetUserId", material["target_user_id"] or "")).strip()
 
     if not title:
         raise ValueError("Informe o título do material.")
@@ -135,10 +140,10 @@ def update_material(connection, payload):
     connection.execute(
         """
         UPDATE teaching_materials
-        SET title = ?, description = ?, subject = ?, module = ?
+        SET title = ?, description = ?, subject = ?, module = ?, target_user_id = ?
         WHERE id = ?
         """,
-        (title, description, subject, module, material_id),
+        (title, description, subject, module, target_user_id, material_id),
     )
     connection.commit()
     return get_material(connection, material_id)
@@ -159,6 +164,7 @@ def list_materials(connection, payload):
         for subject in payload.get("subjects", [])
         if str(subject).strip()
     ]
+    user_id = str(payload.get("userId", "")).strip()
     params = []
     filters = []
 
@@ -170,6 +176,10 @@ def list_materials(connection, payload):
         placeholders = ",".join("?" for _ in subjects)
         filters.append(f"LOWER(subject) IN ({placeholders})")
         params.extend(subjects)
+
+    if user_id:
+        filters.append("(target_user_id = '' OR target_user_id IS NULL OR target_user_id = ?)")
+        params.append(user_id)
 
     where = f"WHERE {' AND '.join(filters)}" if filters else ""
 

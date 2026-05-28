@@ -250,9 +250,21 @@ function canAccessMaterial(user, material) {
     return true;
   }
 
+  if (material.target_user_id && material.target_user_id !== user.id) {
+    return false;
+  }
+
   const subjects = listUserSubjects(user.id).map(normalizeSubjectName);
   const materialSubject = normalizeSubjectName(material.subject);
   return Boolean(materialSubject) && subjects.includes(materialSubject);
+}
+
+function enrichTargetUsers(items, users) {
+  const usersById = new Map(users.map((user) => [user.id, user]));
+  return items.map((item) => ({
+    ...item,
+    target_user: item.target_user_id ? usersById.get(item.target_user_id) || null : null,
+  }));
 }
 
 function sendMaterialFile(res, material) {
@@ -302,6 +314,10 @@ function sendAnnouncementMediaFile(req, res, announcement) {
 function canAccessAnnouncement(user, announcement) {
   if (getUserRole(user) === "gestao") {
     return true;
+  }
+
+  if (announcement.target_user_id && announcement.target_user_id !== user.id) {
+    return false;
   }
 
   if (!announcement.subject) {
@@ -1706,9 +1722,13 @@ app.get("/api/aluno/materials", requirePaidAccess, async (req, res) => {
     const subjectKeys = subjects.map(normalizeSubjectName);
     const allMaterials = await runMaterialsDb("list-materials", {
       type: req.query.type || "",
+      userId: req.user.id,
     });
     const materials = allMaterials.filter((material) => {
-      return subjectKeys.includes(normalizeSubjectName(material.subject));
+      return (
+        (!material.target_user_id || material.target_user_id === req.user.id) &&
+        subjectKeys.includes(normalizeSubjectName(material.subject))
+      );
     });
 
     return res.json({ subjects, materials });
@@ -1721,12 +1741,11 @@ app.get("/api/aluno/announcements", requirePaidAccess, async (req, res) => {
   try {
     const subjects = listUserSubjects(req.user.id);
     const subjectKeys = subjects.map(normalizeSubjectName);
-    const allAnnouncements = await runLearningDb("list-announcements", {});
+    const allAnnouncements = await runLearningDb("list-announcements", { userId: req.user.id });
     const announcements = allAnnouncements.filter((announcement) => {
-      return (
-        !announcement.subject ||
-        subjectKeys.includes(normalizeSubjectName(announcement.subject))
-      );
+      const targetAllowed = !announcement.target_user_id || announcement.target_user_id === req.user.id;
+      const subjectAllowed = !announcement.subject || subjectKeys.includes(normalizeSubjectName(announcement.subject));
+      return targetAllowed && subjectAllowed;
     });
     return res.json({ announcements });
   } catch (error) {
@@ -2260,11 +2279,12 @@ function handleMaterialUploadError(error, req, res, next) {
 
 app.get("/api/gestao/materials", requireGestao, async (req, res) => {
   try {
+    const users = listUsers("").map(sanitizeUser);
     const materials = await runMaterialsDb("list-materials", {
       type: req.query.type || "",
     });
 
-    return res.json({ materials });
+    return res.json({ users, materials: enrichTargetUsers(materials, users) });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -2281,8 +2301,9 @@ app.get("/api/gestao/materials/:id/file", requireGestao, async (req, res) => {
 
 app.get("/api/gestao/announcements", requireGestao, async (req, res) => {
   try {
+    const users = listUsers("").map(sanitizeUser);
     const announcements = await runLearningDb("list-announcements", {});
-    return res.json({ announcements });
+    return res.json({ users, announcements: enrichTargetUsers(announcements, users) });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -2310,6 +2331,7 @@ app.post("/api/gestao/announcements", requireGestao, announcementUpload.single("
       mediaUrl: "",
       mediaMimeType: req.file?.mimetype || "",
       mediaOriginalName: req.file?.originalname || "",
+      targetUserId: req.body?.targetUserId || "",
       createdBy: req.user.id,
     });
 
@@ -2344,6 +2366,7 @@ app.patch("/api/gestao/materials/:id", requireGestao, async (req, res) => {
       description: req.body?.description || "",
       subject: req.body?.subject,
       module: req.body?.module || "",
+      targetUserId: req.body?.targetUserId || "",
     });
 
     return res.json({
@@ -2397,6 +2420,7 @@ app.post(
         description: req.body?.description || "",
         subject: req.body?.subject || "",
         module: req.body?.module || "",
+        targetUserId: req.body?.targetUserId || "",
         originalName: req.file.originalname,
         fileName: req.file.filename,
         filePath: req.file.path,
@@ -2434,6 +2458,7 @@ app.post(
         description: req.body?.description || "",
         subject: req.body?.subject || "",
         module: req.body?.module || "",
+        targetUserId: req.body?.targetUserId || "",
         originalName: req.file.originalname,
         fileName: req.file.filename,
         filePath: req.file.path,

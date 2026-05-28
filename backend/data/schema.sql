@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS teaching_materials (
     file_url TEXT NOT NULL,
     mime_type TEXT NOT NULL,
     size_bytes INTEGER NOT NULL,
+    target_user_id TEXT,
     created_by TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
@@ -152,6 +153,7 @@ CREATE TABLE IF NOT EXISTS announcements (
     media_url TEXT,
     media_mime_type TEXT,
     media_original_name TEXT,
+    target_user_id TEXT,
     created_by TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL

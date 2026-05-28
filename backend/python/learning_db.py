@@ -44,6 +44,7 @@ def init_db(connection):
             media_url TEXT,
             media_mime_type TEXT,
             media_original_name TEXT,
+            target_user_id TEXT,
             created_by TEXT NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
@@ -107,6 +108,7 @@ def ensure_announcement_media_columns(connection):
         "media_url": "TEXT",
         "media_mime_type": "TEXT",
         "media_original_name": "TEXT",
+        "target_user_id": "TEXT",
     }
     for column, column_type in media_columns.items():
         if column not in columns:
@@ -144,6 +146,7 @@ def create_announcement(connection, payload):
     media_url = str(payload.get("mediaUrl", "")).strip()
     media_mime_type = str(payload.get("mediaMimeType", "")).strip()
     media_original_name = str(payload.get("mediaOriginalName", "")).strip()
+    target_user_id = str(payload.get("targetUserId", "")).strip()
     created_by = str(payload.get("createdBy", "")).strip()
 
     if not title or not body or not created_by:
@@ -154,9 +157,9 @@ def create_announcement(connection, payload):
         """
         INSERT INTO announcements (
             title, body, subject, module, media_type, media_path, media_url,
-            media_mime_type, media_original_name, created_by, created_at, updated_at
+            media_mime_type, media_original_name, target_user_id, created_by, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             title,
@@ -168,6 +171,7 @@ def create_announcement(connection, payload):
             media_url,
             media_mime_type,
             media_original_name,
+            target_user_id,
             created_by,
             now,
             now,
@@ -193,13 +197,20 @@ def list_announcements(connection, payload):
         for subject in payload.get("subjects", [])
         if str(subject).strip()
     ]
+    user_id = str(payload.get("userId", "")).strip()
     params = []
-    where = ""
+    filters = []
 
     if subjects:
         placeholders = ",".join("?" for _ in subjects)
-        where = f"WHERE subject = '' OR subject IS NULL OR LOWER(subject) IN ({placeholders})"
+        filters.append(f"(subject = '' OR subject IS NULL OR LOWER(subject) IN ({placeholders}))")
         params.extend(subjects)
+
+    if user_id:
+        filters.append("(target_user_id = '' OR target_user_id IS NULL OR target_user_id = ?)")
+        params.append(user_id)
+
+    where = f"WHERE {' AND '.join(filters)}" if filters else ""
 
     rows = connection.execute(
         f"""

@@ -40,6 +40,9 @@ const teacherCalendarYear = document.getElementById("teacher-calendar-year");
 const catalogList = document.getElementById("catalog-list");
 const gradeUser = document.getElementById("grade-user");
 const teacherEventTarget = document.getElementById("teacher-event-target");
+const pdfTarget = document.getElementById("pdf-target");
+const videoTarget = document.getElementById("video-target");
+const announcementTarget = document.getElementById("announcement-target");
 const planCourse = document.getElementById("plan-course");
 const courseCancel = document.getElementById("course-cancel");
 const planCancel = document.getElementById("plan-cancel");
@@ -51,6 +54,7 @@ const tabs = document.querySelectorAll(".tab");
 let currentView = "payments";
 let currentModule = "access";
 let gradeUsers = [];
+let audienceUsers = [];
 let paymentCatalog = [];
 let teacherEvents = [];
 let teacherCalendarDate = new Date();
@@ -286,13 +290,17 @@ function renderMaterials(type, materials) {
           return `<option value="${escapeHtml(subject)}" ${selected}>${escapeHtml(subject)}</option>`;
         })
         .join("");
+      const targetOptionsHtml = buildAudienceOptions(material.target_user_id || "");
+      const audience = material.target_user
+        ? `${material.target_user.email || material.target_user.phoneNumber || material.target_user.name}`
+        : "Todos os alunos";
 
       return `
         <article class="material-item" data-material-id="${material.id}" data-material-type="${type}">
           <div class="material-summary">
             <h3>${escapeHtml(material.title)}</h3>
             <div class="material-meta">
-              ${escapeHtml(material.subject || "Sem matéria")} · ${escapeHtml(material.module || "Sem módulo")} · ${formatFileSize(material.size_bytes)} · ${formatDate(material.created_at)}
+              ${escapeHtml(audience)} · ${escapeHtml(material.subject || "Sem matéria")} · ${escapeHtml(material.module || "Sem módulo")} · ${formatFileSize(material.size_bytes)} · ${formatDate(material.created_at)}
             </div>
             <p class="mb-0 mt-2 text-muted">${escapeHtml(material.description || "Sem descrição.")}</p>
           </div>
@@ -315,6 +323,12 @@ function renderMaterials(type, materials) {
               <div class="col-md-5">
                 <label class="form-label">Título</label>
                 <input class="form-control" type="text" name="title" value="${escapeHtml(material.title)}" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Enviar para</label>
+                <select class="form-select" name="targetUserId" required>
+                  ${targetOptionsHtml}
+                </select>
               </div>
               <div class="col-md-3">
                 <label class="form-label">Disciplina</label>
@@ -377,12 +391,15 @@ function renderAnnouncements(announcements) {
           : announcement.media_type === "audio"
             ? `<audio class="announcement-media" controls src="/api/gestao/announcements/${announcement.id}/media"></audio>`
           : "";
+      const audience = announcement.target_user
+        ? `${announcement.target_user.email || announcement.target_user.phoneNumber || announcement.target_user.name}`
+        : "Todos os alunos";
       return `
         <article class="material-item">
           <div class="material-summary">
             <h3>${escapeHtml(announcement.title)}</h3>
             <div class="material-meta">
-              ${escapeHtml(announcement.subject || "Todos os alunos")} · ${escapeHtml(announcement.module || "Sem módulo")} · ${formatDate(announcement.created_at)}
+              ${escapeHtml(audience)} · ${escapeHtml(announcement.subject || "Todas as matérias")} · ${escapeHtml(announcement.module || "Sem módulo")} · ${formatDate(announcement.created_at)}
             </div>
             <p class="mb-0 mt-2 text-muted">${escapeHtml(announcement.body)}</p>
             ${media}
@@ -400,6 +417,30 @@ function renderAnnouncements(announcements) {
 
   announcementList.querySelectorAll(".announcement-delete").forEach((button) => {
     button.addEventListener("click", () => deleteAnnouncement(button));
+  });
+}
+
+function buildAudienceOptions(selectedUserId = "") {
+  const students = audienceUsers.filter((user) => user.role !== "gestao");
+  const options = students
+    .map((user) => {
+      const login = user.email || user.phoneNumber || user.id;
+      const name = user.name ? ` - ${user.name}` : "";
+      const selected = String(user.id) === String(selectedUserId) ? "selected" : "";
+      return `<option value="${escapeHtml(user.id)}" ${selected}>${escapeHtml(login)}${escapeHtml(name)}</option>`;
+    })
+    .join("");
+
+  return `<option value="" ${selectedUserId ? "" : "selected"}>Todos os alunos</option>${options}`;
+}
+
+function renderAudienceTargets(users) {
+  audienceUsers = users;
+  const options = buildAudienceOptions("");
+  [pdfTarget, videoTarget, announcementTarget].forEach((select) => {
+    if (select) {
+      select.innerHTML = options;
+    }
   });
 }
 
@@ -983,6 +1024,7 @@ async function loadMaterials(type) {
     throw new Error(data.message || "Não foi possível carregar os materiais.");
   }
 
+  renderAudienceTargets(data.users || audienceUsers);
   renderMaterials(type, data.materials || []);
   setLocalFeedback(target, "Materiais atualizados.", "success");
 }
@@ -996,6 +1038,7 @@ async function loadAnnouncements() {
     throw new Error(data.message || "Não foi possível carregar os comunicados.");
   }
 
+  renderAudienceTargets(data.users || audienceUsers);
   renderAnnouncements(data.announcements || []);
   setLocalFeedback(announcementFeedback, "Comunicados atualizados.", "success");
 }
@@ -1184,6 +1227,7 @@ async function updateMaterial(form) {
         subject: formData.get("subject"),
         module: formData.get("module"),
         description: formData.get("description"),
+        targetUserId: formData.get("targetUserId"),
       }),
     });
     const data = await response.json().catch(() => ({}));
