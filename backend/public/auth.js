@@ -118,7 +118,7 @@ function showOtpStep({
   otpTitle.textContent =
     purpose === "register" || purpose === "register-phone"
       ? "Confirme seu cadastro"
-      : purpose === "reset-password-phone"
+      : purpose === "reset-password"
         ? "Confirme a recuperação"
       : "Confirme seu login";
   otpSubtitle.textContent =
@@ -218,7 +218,7 @@ async function resendOtp() {
     return sendAuthRequest("/api/auth/login/resend", {});
   }
 
-  if (purpose === "reset-password-phone") {
+  if (purpose === "reset-password") {
     return sendAuthRequest("/api/auth/password/forgot/resend", {});
   }
 
@@ -287,8 +287,7 @@ forgotForm.addEventListener("submit", async (event) => {
 
   try {
     const data = await sendAuthRequest("/api/auth/password/forgot/start", {
-      phoneNumber: formData.get("phoneNumber"),
-      channel: formData.get("verificationChannel"),
+      email: formData.get("email"),
     });
 
     forgotForm.reset();
@@ -304,7 +303,12 @@ otpForm.addEventListener("submit", async (event) => {
   try {
     let data;
 
-    if (otpPurpose.value.endsWith("-phone")) {
+    if (otpPurpose.value === "reset-password") {
+      data = await sendAuthRequest("/api/auth/password/forgot/verify", {
+        email: otpEmail.value,
+        code: otpCode.value,
+      });
+    } else if (otpPurpose.value.endsWith("-phone")) {
       data = await sendAuthRequest(
         otpPurpose.value === "register-phone"
           ? "/api/auth/register/phone/verify"
@@ -314,11 +318,6 @@ otpForm.addEventListener("submit", async (event) => {
           code: otpCode.value,
         }
       );
-    } else if (otpPurpose.value === "reset-password-phone") {
-      data = await sendAuthRequest("/api/auth/password/forgot/phone/verify", {
-        phoneNumber: otpPhone.value,
-        code: otpCode.value,
-      });
     } else {
       data = await sendAuthRequest("/api/auth/verify", {
         email: otpEmail.value,
@@ -344,7 +343,7 @@ otpForm.addEventListener("submit", async (event) => {
 });
 
 otpBack.addEventListener("click", () => {
-  if (otpPurpose.value === "reset-password-phone") {
+  if (otpPurpose.value === "reset-password") {
     showForgotPasswordForm();
   } else {
     setMode(otpPurpose.value.startsWith("register") ? "register" : "login");

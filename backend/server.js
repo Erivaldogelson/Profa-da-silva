@@ -1117,52 +1117,39 @@ app.post("/api/professor/login/resend", async (req, res) => {
 });
 
 app.post("/api/auth/password/forgot/start", async (req, res) => {
-  const phoneNumber = normalizePhone(req.body?.phoneNumber);
-  const channel = String(req.body?.channel || "sms").trim().toLowerCase();
-  const user = findUserByPhone(phoneNumber);
+  const email = normalizeEmail(req.body?.email);
+  const user = findUserByEmail(email);
 
-  if (!phoneNumber) {
-    return res.status(400).json({ message: "Informe um número de telefone válido." });
-  }
-
-  if (!["sms", "whatsapp"].includes(channel)) {
-    return res.status(400).json({ message: "Canal inválido para recuperação de senha." });
+  if (!email) {
+    return res.status(400).json({ message: "Informe um e-mail válido." });
   }
 
   if (!user || !user.passwordHash) {
     return res.status(404).json({
-      message: "Não encontramos uma conta com senha cadastrada para este número.",
+      message: "Não encontramos uma conta com senha cadastrada para este e-mail.",
     });
   }
 
-  if (!twilioConfigured) {
-    return res.status(400).json({
-      message:
-        "Twilio Verify ainda não está configurado. Preencha as credenciais da Twilio no .env.",
-    });
-  }
-
-  try {
-    await runPythonTwilio(["start", phoneNumber, channel]);
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
+  const result = await createVerification({
+    email,
+    purpose: "reset-password",
+    userId: user.id,
+  });
 
   req.session.pendingPasswordReset = {
-    email: user.email || "",
+    email,
     userId: user.id,
-    phoneNumber,
-    channel,
     verified: false,
     token: "",
     expiresAt: "",
   };
 
   return res.json({
-    message: buildPhoneCodeMessage(channel),
-    phoneNumber,
-    channel,
-    purpose: "reset-password-phone",
+    message: "Código de recuperação enviado para o seu e-mail.",
+    email,
+    purpose: "reset-password",
+    debugCode: result.debugCode,
+    debugHint: result.debugHint,
   });
 });
 
@@ -1255,7 +1242,7 @@ app.post("/api/auth/login/resend", async (req, res) => {
 app.post("/api/auth/password/forgot/resend", async (req, res) => {
   const sessionData = req.session.pendingPasswordReset;
 
-  if (!sessionData?.phoneNumber || !sessionData?.userId) {
+  if (!sessionData?.email || !sessionData?.userId) {
     return res.status(400).json({
       message: "Inicie novamente a recuperação de senha para receber um novo código.",
     });
@@ -1263,31 +1250,18 @@ app.post("/api/auth/password/forgot/resend", async (req, res) => {
 
   const user = findUserById(sessionData.userId);
 
-  if (!user || user.phoneNumber !== sessionData.phoneNumber || !user.passwordHash) {
+  if (!user || user.email !== sessionData.email || !user.passwordHash) {
     delete req.session.pendingPasswordReset;
     return res.status(404).json({
-      message: "Não encontramos uma conta com senha cadastrada para este número.",
+      message: "Não encontramos uma conta com senha cadastrada para este e-mail.",
     });
   }
 
-  if (!twilioConfigured) {
-    return res.status(400).json({
-      message:
-        "Twilio Verify ainda não está configurado. Preencha as credenciais da Twilio no .env.",
-    });
-  }
-
-  if (!sessionData.phoneNumber) {
-    return res.status(400).json({
-      message: "Esta conta ainda não possui telefone cadastrado para recuperação por celular.",
-    });
-  }
-
-  try {
-    await runPythonTwilio(["start", sessionData.phoneNumber, sessionData.channel]);
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
+  const result = await createVerification({
+    email: sessionData.email,
+    purpose: "reset-password",
+    userId: sessionData.userId,
+  });
 
   req.session.pendingPasswordReset = {
     ...sessionData,
@@ -1297,10 +1271,11 @@ app.post("/api/auth/password/forgot/resend", async (req, res) => {
   };
 
   return res.json({
-    message: buildPhoneCodeMessage(sessionData.channel),
-    phoneNumber: sessionData.phoneNumber,
-    channel: sessionData.channel,
-    purpose: "reset-password-phone",
+    message: "Novo código de recuperação enviado para o seu e-mail.",
+    email: sessionData.email,
+    purpose: "reset-password",
+    debugCode: result.debugCode,
+    debugHint: result.debugHint,
   });
 });
 
@@ -1454,35 +1429,50 @@ app.post("/api/auth/verify", async (req, res) => {
   });
 });
 
-app.post("/api/auth/password/forgot/phone/verify", async (req, res) => {
-  const phoneNumber = normalizePhone(req.body?.phoneNumber);
+app.post("/api/auth/password/forgot/verify", async (req, res) => {
+  const email = normalizeEmail(req.body?.email);
   const code = String(req.body?.code || "").trim();
   const sessionData = req.session.pendingPasswordReset;
 
-  if (!sessionData || sessionData.phoneNumber !== phoneNumber) {
+  if (!sessionData || sessionData.email !== email) {
     return res.status(400).json({
       message: "Solicite um novo código antes de confirmar a recuperação.",
     });
   }
 
-  try {
-    const result = await runPythonTwilio(["check", phoneNumber, code]);
+  const verification = findVerification(email, "reset-password");
 
-    if (result.status !== "approved") {
-      return res.status(401).json({ message: "Código de confirmação inválido." });
-    }
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  if (!verification || verification.userId !== sessionData.userId) {
+    return res.status(404).json({
+      message: "Código não encontrado ou expirado. Solicite um novo código.",
+    });
+  }
+
+  if (verification.attempts >= 5) {
+    deleteVerification(verification.id);
+    return res.status(429).json({
+      message: "Muitas tentativas inválidas. Solicite um novo código.",
+    });
+  }
+
+  const validCode = await bcrypt.compare(code, verification.codeHash);
+
+  if (!validCode) {
+    verification.attempts += 1;
+    updateVerification(verification);
+    return res.status(401).json({ message: "Código de confirmação inválido." });
   }
 
   const user = findUserById(sessionData.userId);
 
-  if (!user || user.phoneNumber !== phoneNumber) {
+  if (!user || user.email !== email) {
     delete req.session.pendingPasswordReset;
     return res.status(404).json({
       message: "Não encontramos uma conta válida para redefinir a senha.",
     });
   }
+
+  deleteVerification(verification.id);
 
   const token = crypto.randomUUID();
   req.session.pendingPasswordReset = {
