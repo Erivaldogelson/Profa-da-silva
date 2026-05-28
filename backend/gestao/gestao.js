@@ -16,6 +16,9 @@ const usersTableView = document.getElementById("users-table-view");
 const pdfForm = document.getElementById("pdf-form");
 const videoForm = document.getElementById("video-form");
 const announcementForm = document.getElementById("announcement-form");
+const announcementSubmit = document.getElementById("announcement-submit");
+const announcementCancel = document.getElementById("announcement-cancel");
+const announcementEditOptions = document.getElementById("announcement-edit-options");
 const gradeForm = document.getElementById("grade-form");
 const teacherEventForm = document.getElementById("teacher-event-form");
 const courseForm = document.getElementById("course-form");
@@ -55,6 +58,8 @@ let currentView = "payments";
 let currentModule = "access";
 let gradeUsers = [];
 let audienceUsers = [];
+let currentAnnouncements = [];
+let editingAnnouncementId = "";
 let paymentCatalog = [];
 let teacherEvents = [];
 let teacherCalendarDate = new Date();
@@ -393,6 +398,8 @@ function renderMaterials(type, materials) {
 }
 
 function renderAnnouncements(announcements) {
+  currentAnnouncements = announcements;
+
   if (!announcements.length) {
     announcementList.innerHTML = `<p class="text-muted mb-0">Nenhum comunicado publicado ainda.</p>`;
     return;
@@ -425,6 +432,10 @@ function renderAnnouncements(announcements) {
             ${pdfFile}
           </div>
           <div class="material-actions">
+            <button class="btn btn-outline-dark rounded-pill btn-sm announcement-edit" type="button" data-announcement-id="${announcement.id}">
+              <i class="bi bi-pencil"></i>
+              Editar
+            </button>
             <button class="btn btn-outline-danger rounded-pill btn-sm announcement-delete" type="button" data-announcement-id="${announcement.id}">
               <i class="bi bi-trash"></i>
               Apagar
@@ -435,9 +446,48 @@ function renderAnnouncements(announcements) {
     })
     .join("");
 
+  announcementList.querySelectorAll(".announcement-edit").forEach((button) => {
+    button.addEventListener("click", () => startAnnouncementEdit(button.dataset.announcementId));
+  });
+
   announcementList.querySelectorAll(".announcement-delete").forEach((button) => {
     button.addEventListener("click", () => deleteAnnouncement(button));
   });
+}
+
+function resetAnnouncementForm() {
+  editingAnnouncementId = "";
+  announcementForm.reset();
+  announcementEditOptions.hidden = true;
+  announcementCancel.hidden = true;
+  announcementSubmit.querySelector("span").textContent = "Publicar comunicado";
+  announcementSubmit.querySelector("i").className = "bi bi-send";
+}
+
+function startAnnouncementEdit(announcementId) {
+  const announcement = currentAnnouncements.find((item) => String(item.id) === String(announcementId));
+
+  if (!announcement) {
+    setLocalFeedback(announcementFeedback, "Comunicado não encontrado para edição.", "error");
+    return;
+  }
+
+  editingAnnouncementId = String(announcement.id);
+  announcementForm.elements.targetUserId.value = announcement.target_user_id || "";
+  announcementForm.elements.title.value = announcement.title || "";
+  announcementForm.elements.subject.value = announcement.subject || "";
+  announcementForm.elements.module.value = announcement.module || "";
+  announcementForm.elements.body.value = announcement.body || "";
+  announcementForm.elements.media.value = "";
+  announcementForm.elements.pdf.value = "";
+  announcementForm.elements.removeMedia.checked = false;
+  announcementForm.elements.removePdf.checked = false;
+  announcementEditOptions.hidden = false;
+  announcementCancel.hidden = false;
+  announcementSubmit.querySelector("span").textContent = "Salvar comunicado";
+  announcementSubmit.querySelector("i").className = "bi bi-check2";
+  announcementForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  setLocalFeedback(announcementFeedback, "Editando comunicado. Salve para aplicar as mudanças.", "success");
 }
 
 function buildAudienceOptions(selectedUserId = "") {
@@ -1269,24 +1319,32 @@ async function updateMaterial(form) {
   }
 }
 
-async function publishAnnouncement(form) {
+async function saveAnnouncement(form) {
   const submitButton = form.querySelector("button[type='submit']");
   const formData = new FormData(form);
+  const editing = Boolean(editingAnnouncementId);
 
   try {
     submitButton.disabled = true;
-    setLocalFeedback(announcementFeedback, "Publicando comunicado...", "success");
-    const response = await fetch("/api/gestao/announcements", {
-      method: "POST",
+    setLocalFeedback(
+      announcementFeedback,
+      editing ? "Salvando comunicado..." : "Publicando comunicado...",
+      "success"
+    );
+    const response = await fetch(
+      editing ? `/api/gestao/announcements/${editingAnnouncementId}` : "/api/gestao/announcements",
+      {
+      method: editing ? "PUT" : "POST",
       body: formData,
-    });
+      }
+    );
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.message || "Não foi possível publicar o comunicado.");
+      throw new Error(data.message || "Não foi possível salvar o comunicado.");
     }
 
-    form.reset();
+    resetAnnouncementForm();
     setLocalFeedback(announcementFeedback, data.message, "success");
     await loadAnnouncements();
   } catch (error) {
@@ -1749,7 +1807,12 @@ videoForm.addEventListener("submit", (event) => {
 
 announcementForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  publishAnnouncement(announcementForm);
+  saveAnnouncement(announcementForm);
+});
+
+announcementCancel.addEventListener("click", () => {
+  resetAnnouncementForm();
+  setLocalFeedback(announcementFeedback, "Edição cancelada.", "success");
 });
 
 gradeForm.addEventListener("submit", (event) => {

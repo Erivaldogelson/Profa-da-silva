@@ -382,6 +382,17 @@ body {
   border-radius: 8px;
 }
 
+.edit-options {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfaf7;
+}
+
+html[data-theme="dark"] .edit-options {
+  background: #201d1a;
+}
+
 .catalog-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);

@@ -238,6 +238,58 @@ def list_announcements(connection, payload):
     return [row_to_dict(row) for row in rows]
 
 
+def update_announcement(connection, payload):
+    announcement_id = int(payload.get("id", 0))
+    title = str(payload.get("title", "")).strip()
+    body = str(payload.get("body", "")).strip()
+    subject = str(payload.get("subject", "")).strip()
+    module = str(payload.get("module", "")).strip()
+    media_type = str(payload.get("mediaType", "")).strip()
+    media_path = str(payload.get("mediaPath", "")).strip()
+    media_url = str(payload.get("mediaUrl", "")).strip()
+    media_mime_type = str(payload.get("mediaMimeType", "")).strip()
+    media_original_name = str(payload.get("mediaOriginalName", "")).strip()
+    pdf_path = str(payload.get("pdfPath", "")).strip()
+    pdf_mime_type = str(payload.get("pdfMimeType", "")).strip()
+    pdf_original_name = str(payload.get("pdfOriginalName", "")).strip()
+    target_user_id = str(payload.get("targetUserId", "")).strip()
+
+    if not title or not body:
+        raise ValueError("Informe título e comunicado.")
+
+    get_announcement(connection, announcement_id)
+    now = utc_now()
+    connection.execute(
+        """
+        UPDATE announcements
+        SET title = ?, body = ?, subject = ?, module = ?, media_type = ?,
+            media_path = ?, media_url = ?, media_mime_type = ?,
+            media_original_name = ?, pdf_path = ?, pdf_mime_type = ?,
+            pdf_original_name = ?, target_user_id = ?, updated_at = ?
+        WHERE id = ?
+        """,
+        (
+            title,
+            body,
+            subject,
+            module,
+            media_type,
+            media_path,
+            media_url,
+            media_mime_type,
+            media_original_name,
+            pdf_path,
+            pdf_mime_type,
+            pdf_original_name,
+            target_user_id,
+            now,
+            announcement_id,
+        ),
+    )
+    connection.commit()
+    return get_announcement(connection, announcement_id)
+
+
 def delete_announcement(connection, payload):
     announcement = get_announcement(connection, int(payload.get("id", 0)))
     connection.execute("DELETE FROM announcements WHERE id = ?", (announcement["id"],))
@@ -418,6 +470,7 @@ def main():
             "create-announcement": lambda: create_announcement(connection, payload),
             "get-announcement": lambda: get_announcement(connection, int(payload.get("id", 0))),
             "list-announcements": lambda: list_announcements(connection, payload),
+            "update-announcement": lambda: update_announcement(connection, payload),
             "delete-announcement": lambda: delete_announcement(connection, payload),
             "create-event": lambda: create_event(connection, payload),
             "list-events": lambda: list_events(connection, payload),

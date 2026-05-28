@@ -263,10 +263,23 @@
               <label class="form-label">PDF do comunicado</label>
               <input class="form-control" type="file" name="pdf" accept="application/pdf,.pdf">
             </div>
+            <div id="announcement-edit-options" class="col-12 edit-options" hidden>
+              <label class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="removeMedia">
+                <span class="form-check-label">Remover áudio/vídeo atual</span>
+              </label>
+              <label class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="removePdf">
+                <span class="form-check-label">Remover PDF atual</span>
+              </label>
+            </div>
           </div>
-          <button class="btn btn-dark rounded-pill mt-3" type="submit">
+          <button id="announcement-submit" class="btn btn-dark rounded-pill mt-3" type="submit">
             <i class="bi bi-send"></i>
-            Publicar comunicado
+            <span>Publicar comunicado</span>
+          </button>
+          <button id="announcement-cancel" class="btn btn-outline-dark rounded-pill mt-3 ms-2" type="button" hidden>
+            Cancelar edição
           </button>
         </form>
         <div id="announcement-feedback" class="gestao-feedback" role="status" aria-live="polite"></div>

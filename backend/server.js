@@ -224,6 +224,12 @@ function getAnnouncementPdfName(announcement) {
   return announcement?.pdf_original_name || announcement?.media_original_name || "comunicado.pdf";
 }
 
+function unlinkFileIfPresent(filePath) {
+  if (filePath) {
+    fs.unlink(filePath, () => {});
+  }
+}
+
 function sendAnnouncementPdfFile(req, res, announcement) {
   const pdfPath = getAnnouncementPdfPath(announcement);
 
@@ -2637,17 +2643,104 @@ app.post(
   }
 });
 
+app.put(
+  "/api/gestao/announcements/:id",
+  requireGestao,
+  announcementUpload.fields([
+    { name: "media", maxCount: 1 },
+    { name: "pdf", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    try {
+      const current = await runLearningDb("get-announcement", { id: req.params.id });
+      const mediaFile = getUploadedAnnouncementFile(req, "media");
+      const pdfFile = getUploadedAnnouncementFile(req, "pdf");
+      const removeMedia = String(req.body?.removeMedia || "") === "on";
+      const removePdf = String(req.body?.removePdf || "") === "on";
+      const currentMediaIsPdf = current.media_type === "pdf";
+      const currentPdfPath = getAnnouncementPdfPath(current);
+      const currentPdfMimeType = current.pdf_mime_type || (currentMediaIsPdf ? current.media_mime_type : "");
+      const currentPdfOriginalName = current.pdf_original_name || (currentMediaIsPdf ? current.media_original_name : "");
+      const mediaType = mediaFile?.mimetype.startsWith("video/")
+        ? "video"
+        : mediaFile?.mimetype.startsWith("audio/")
+          ? "audio"
+        : removeMedia || currentMediaIsPdf
+          ? ""
+        : current.media_type || "";
+      const mediaPath = mediaFile
+        ? mediaFile.path
+        : removeMedia || currentMediaIsPdf
+          ? ""
+        : current.media_path || "";
+      const mediaMimeType = mediaFile
+        ? mediaFile.mimetype
+        : removeMedia || currentMediaIsPdf
+          ? ""
+        : current.media_mime_type || "";
+      const mediaOriginalName = mediaFile
+        ? mediaFile.originalname
+        : removeMedia || currentMediaIsPdf
+          ? ""
+        : current.media_original_name || "";
+      const pdfPath = pdfFile
+        ? pdfFile.path
+        : removePdf
+          ? ""
+        : currentPdfPath;
+      const pdfMimeType = pdfFile
+        ? pdfFile.mimetype
+        : removePdf
+          ? ""
+        : currentPdfMimeType;
+      const pdfOriginalName = pdfFile
+        ? pdfFile.originalname
+        : removePdf
+          ? ""
+        : currentPdfOriginalName;
+
+      const announcement = await runLearningDb("update-announcement", {
+        id: req.params.id,
+        title: req.body?.title,
+        body: req.body?.body,
+        subject: req.body?.subject || "",
+        module: req.body?.module || "",
+        mediaType,
+        mediaPath,
+        mediaUrl: "",
+        mediaMimeType,
+        mediaOriginalName,
+        pdfPath,
+        pdfMimeType,
+        pdfOriginalName,
+        targetUserId: req.body?.targetUserId || "",
+      });
+
+      if ((mediaFile || removeMedia || currentMediaIsPdf) && current.media_path && !currentMediaIsPdf) {
+        unlinkFileIfPresent(current.media_path);
+      }
+
+      if ((pdfFile || removePdf) && currentPdfPath) {
+        unlinkFileIfPresent(currentPdfPath);
+      }
+
+      return res.json({
+        message: "Comunicado atualizado.",
+        announcement,
+      });
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
+    }
+  }
+);
+
 app.delete("/api/gestao/announcements/:id", requireGestao, async (req, res) => {
   try {
     const announcement = await runLearningDb("delete-announcement", {
       id: req.params.id,
     });
-    if (announcement.media_path) {
-      fs.unlink(announcement.media_path, () => {});
-    }
-    if (announcement.pdf_path) {
-      fs.unlink(announcement.pdf_path, () => {});
-    }
+    unlinkFileIfPresent(announcement.media_path);
+    unlinkFileIfPresent(announcement.pdf_path);
     return res.json({ message: "Comunicado apagado.", announcement });
   } catch (error) {
     return res.status(404).json({ message: error.message });
