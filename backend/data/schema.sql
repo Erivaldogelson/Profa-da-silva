@@ -63,6 +63,9 @@ CREATE TABLE IF NOT EXISTS payment_requests (
     materia TEXT NOT NULL,
     plano TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pendente',
+    lesson_date TEXT,
+    duration TEXT,
+    class_value REAL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );

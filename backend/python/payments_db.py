@@ -42,6 +42,9 @@ def init_db(connection):
             materia TEXT NOT NULL,
             plano TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'pendente',
+            lesson_date TEXT,
+            duration TEXT,
+            class_value REAL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
@@ -99,7 +102,24 @@ def init_db(connection):
         """
     )
     connection.commit()
+    ensure_payment_sheet_columns(connection)
     seed_payment_catalog(connection)
+
+
+def ensure_payment_sheet_columns(connection):
+    columns = {
+        row["name"]
+        for row in connection.execute("PRAGMA table_info(payment_requests)").fetchall()
+    }
+    extra_columns = {
+        "lesson_date": "TEXT",
+        "duration": "TEXT",
+        "class_value": "REAL",
+    }
+    for column, column_type in extra_columns.items():
+        if column not in columns:
+            connection.execute(f"ALTER TABLE payment_requests ADD COLUMN {column} {column_type}")
+    connection.commit()
 
 
 def row_to_dict(row):
@@ -514,9 +534,9 @@ def create_payment(connection, payload):
         """
         INSERT INTO payment_requests (
             user_id, user_name, user_email, user_phone, materia, plano, status,
-            created_at, updated_at
+            lesson_date, duration, class_value, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, 'pendente', ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             str(payload["userId"]).strip(),
@@ -525,6 +545,10 @@ def create_payment(connection, payload):
             str(payload.get("userPhone", "")).strip(),
             str(payload["materia"]).strip(),
             str(payload["plano"]).strip(),
+            str(payload.get("status") or "pendente").strip().lower(),
+            str(payload.get("lessonDate", "")).strip(),
+            str(payload.get("duration", "")).strip(),
+            float(str(payload.get("classValue") or 0).replace(",", ".")),
             now,
             now,
         ),
@@ -610,6 +634,71 @@ def update_payment_status(connection, payload):
     return get_payment(connection, payment_id)
 
 
+def update_payment(connection, payload):
+    payment_id = int(payload.get("id", 0))
+    payment = get_payment(connection, payment_id)
+    new_status = str(payload.get("status", payment["status"])).strip().lower()
+    allowed_statuses = {"pendente", "em_atendimento", "pago", "cancelado"}
+
+    if new_status not in allowed_statuses:
+        raise ValueError("Status inválido.")
+
+    user_name = clean_text(payload.get("userName", payment["user_name"]))
+    materia = clean_text(payload.get("materia", payment["materia"]))
+    plano = clean_text(payload.get("plano", payment["plano"]))
+    lesson_date = clean_text(payload.get("lessonDate", payment["lesson_date"] or ""))
+    duration = clean_text(payload.get("duration", payment["duration"] or ""))
+    class_value = float(str(payload.get("classValue", payment["class_value"] or 0)).replace(",", ".") or 0)
+    user_email = clean_text(payload.get("userEmail", payment["user_email"] or ""))
+    user_phone = clean_text(payload.get("userPhone", payment["user_phone"] or ""))
+
+    if not user_name or not materia or not plano:
+        raise ValueError("Informe aluno, matéria e plano.")
+
+    now = utc_now()
+    connection.execute(
+        """
+        UPDATE payment_requests
+        SET user_name = ?, user_email = ?, user_phone = ?, materia = ?, plano = ?,
+            status = ?, lesson_date = ?, duration = ?, class_value = ?, updated_at = ?
+        WHERE id = ?
+        """,
+        (
+            user_name,
+            user_email,
+            user_phone,
+            materia,
+            plano,
+            new_status,
+            lesson_date,
+            duration,
+            class_value,
+            now,
+            payment_id,
+        ),
+    )
+
+    if new_status != payment["status"]:
+        connection.execute(
+            """
+            INSERT INTO payment_audit (
+                payment_id, manager_id, old_status, new_status, note, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                payment_id,
+                clean_text(payload.get("managerId", "")),
+                payment["status"],
+                new_status,
+                clean_text(payload.get("note", "Planilha de pagamentos atualizada.")),
+                now,
+            ),
+        )
+    connection.commit()
+    return get_payment(connection, payment_id)
+
+
 def read_payload():
     raw = sys.stdin.read().strip()
     if not raw:
@@ -632,6 +721,8 @@ def main():
             result = list_payments(connection, payload)
         elif action == "update-payment-status":
             result = update_payment_status(connection, payload)
+        elif action == "update-payment":
+            result = update_payment(connection, payload)
         elif action == "list-catalog":
             result = list_catalog(connection, payload)
         elif action == "create-course":

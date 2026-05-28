@@ -1913,13 +1913,37 @@ app.get("/api/payment-catalog", requireAuth, async (req, res) => {
 
 app.get("/api/gestao/payments", requireGestao, async (req, res) => {
   try {
+    const users = listUsers("").map(sanitizeUser);
     const payments = await runPaymentDb("list-payments", {
       status: req.query.status || "",
     });
 
-    return res.json({ payments });
+    return res.json({ users, payments });
   } catch (error) {
     return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/api/gestao/payments", requireGestao, async (req, res) => {
+  try {
+    const userId = String(req.body?.userId || "").trim();
+    const user = userId ? findUserById(userId) : null;
+    const payment = await runPaymentDb("create-payment", {
+      userId: user?.id || `manual-${crypto.randomUUID()}`,
+      userName: user?.name || req.body?.userName,
+      userEmail: user?.email || "",
+      userPhone: user?.phoneNumber || "",
+      materia: req.body?.materia,
+      plano: req.body?.plano,
+      status: req.body?.status || "pendente",
+      lessonDate: req.body?.lessonDate || "",
+      duration: req.body?.duration || "",
+      classValue: req.body?.classValue || 0,
+    });
+
+    return res.status(201).json({ message: "Linha de pagamento adicionada.", payment });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
   }
 });
 
@@ -2033,7 +2057,7 @@ app.patch("/api/gestao/payments/:id/status", requireGestao, async (req, res) => 
       managerId: req.user.id,
     });
 
-    if (payment.status === "pago") {
+    if (payment.status === "pago" && !String(payment.user_id || "").startsWith("manual-")) {
       updateUserAccess(
         payment.user_id,
         "ativo",
@@ -2041,7 +2065,7 @@ app.patch("/api/gestao/payments/:id/status", requireGestao, async (req, res) => 
       );
     }
 
-    if (payment.status === "cancelado") {
+    if (payment.status === "cancelado" && !String(payment.user_id || "").startsWith("manual-")) {
       updateUserAccess(
         payment.user_id,
         "pausado",
@@ -2053,6 +2077,44 @@ app.patch("/api/gestao/payments/:id/status", requireGestao, async (req, res) => 
       message: "Status atualizado.",
       payment,
     });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+app.patch("/api/gestao/payments/:id", requireGestao, async (req, res) => {
+  try {
+    const payment = await runPaymentDb("update-payment", {
+      id: req.params.id,
+      userName: req.body?.userName,
+      userEmail: req.body?.userEmail || "",
+      userPhone: req.body?.userPhone || "",
+      materia: req.body?.materia,
+      plano: req.body?.plano,
+      status: req.body?.status,
+      lessonDate: req.body?.lessonDate || "",
+      duration: req.body?.duration || "",
+      classValue: req.body?.classValue || 0,
+      managerId: req.user.id,
+    });
+
+    if (payment.status === "pago" && !String(payment.user_id || "").startsWith("manual-")) {
+      updateUserAccess(
+        payment.user_id,
+        "ativo",
+        `Acesso liberado pelo pagamento #${payment.id}.`
+      );
+    }
+
+    if (payment.status === "cancelado" && !String(payment.user_id || "").startsWith("manual-")) {
+      updateUserAccess(
+        payment.user_id,
+        "pausado",
+        `Acesso pausado pelo cancelamento do pagamento #${payment.id}.`
+      );
+    }
+
+    return res.json({ message: "Linha de pagamento atualizada.", payment });
   } catch (error) {
     return res.status(400).json({ message: error.message });
   }

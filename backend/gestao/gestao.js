@@ -16,6 +16,7 @@ const usersTableView = document.getElementById("users-table-view");
 const pdfForm = document.getElementById("pdf-form");
 const videoForm = document.getElementById("video-form");
 const announcementForm = document.getElementById("announcement-form");
+const paymentEntryForm = document.getElementById("payment-entry-form");
 const gradeForm = document.getElementById("grade-form");
 const teacherEventForm = document.getElementById("teacher-event-form");
 const courseForm = document.getElementById("course-form");
@@ -39,6 +40,7 @@ const teacherCalendarMonth = document.getElementById("teacher-calendar-month");
 const teacherCalendarYear = document.getElementById("teacher-calendar-year");
 const catalogList = document.getElementById("catalog-list");
 const gradeUser = document.getElementById("grade-user");
+const paymentUser = document.getElementById("payment-user");
 const teacherEventTarget = document.getElementById("teacher-event-target");
 const pdfTarget = document.getElementById("pdf-target");
 const videoTarget = document.getElementById("video-target");
@@ -55,6 +57,7 @@ let currentView = "payments";
 let currentModule = "access";
 let gradeUsers = [];
 let audienceUsers = [];
+let paymentUsers = [];
 let paymentCatalog = [];
 let teacherEvents = [];
 let teacherCalendarDate = new Date();
@@ -77,7 +80,7 @@ const monthNames = [
 const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 const statusLabels = {
-  pendente: "Pendente",
+  pendente: "Por pagar",
   em_atendimento: "Em atendimento",
   pago: "Pago",
   cancelado: "Cancelado",
@@ -929,7 +932,7 @@ function renderPayments(payments) {
   if (!payments.length) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="7" class="text-center text-muted py-4">Nenhum pedido encontrado.</td>
+        <td colspan="8" class="text-center text-muted py-4">Nenhum pedido encontrado.</td>
       </tr>
     `;
     return;
@@ -945,26 +948,36 @@ function renderPayments(payments) {
         .join("");
 
       return `
-        <tr>
-          <td class="fw-semibold">#${payment.id}</td>
+        <tr data-payment-id="${payment.id}">
           <td>
-            <div class="fw-semibold">${escapeHtml(payment.user_name)}</div>
-            <small class="text-muted">${escapeHtml(payment.user_id)}</small>
+            <input class="form-control payment-cell" type="text" name="userName" value="${escapeHtml(payment.user_name)}">
+            <small class="text-muted">#${payment.id} · ${escapeHtml(payment.user_email || payment.user_phone || payment.user_id)}</small>
           </td>
           <td>
-            <div>${escapeHtml(payment.user_email || "Sem e-mail")}</div>
-            <small class="text-muted">${escapeHtml(payment.user_phone || "Sem telefone")}</small>
+            <input class="form-control payment-cell" type="date" name="lessonDate" value="${escapeHtml(payment.lesson_date || "")}">
           </td>
           <td>
-            <div class="fw-semibold">${escapeHtml(payment.materia)}</div>
-            <small class="text-muted">${escapeHtml(payment.plano)}</small>
+            <input class="form-control payment-cell" type="text" name="duration" value="${escapeHtml(payment.duration || "")}" placeholder="1h">
           </td>
-          <td><span class="badge-status">${statusLabels[payment.status] || payment.status}</span></td>
-          <td>${formatDate(payment.created_at)}</td>
           <td>
-            <select class="form-select status-select" data-payment-id="${payment.id}">
+            <input class="form-control payment-cell" type="number" min="0" step="0.01" name="classValue" value="${payment.class_value ?? ""}">
+          </td>
+          <td>
+            <input class="form-control payment-cell" type="text" name="materia" value="${escapeHtml(payment.materia)}">
+          </td>
+          <td>
+            <input class="form-control payment-cell" type="text" name="plano" value="${escapeHtml(payment.plano)}">
+          </td>
+          <td>
+            <select class="form-select payment-cell status-select" name="status" data-payment-id="${payment.id}">
               ${statusOptions}
             </select>
+            <small class="text-muted">${formatDate(payment.updated_at || payment.created_at)}</small>
+          </td>
+          <td>
+            <button class="btn btn-dark rounded-pill btn-sm payment-save" type="button" data-payment-id="${payment.id}">
+              Salvar
+            </button>
           </td>
         </tr>
       `;
@@ -974,6 +987,23 @@ function renderPayments(payments) {
   document.querySelectorAll(".status-select").forEach((select) => {
     select.addEventListener("change", () => updatePaymentStatus(select));
   });
+
+  document.querySelectorAll(".payment-save").forEach((button) => {
+    button.addEventListener("click", () => updatePaymentRow(button));
+  });
+}
+
+function renderPaymentUsers(users) {
+  paymentUsers = users.filter((user) => user.role !== "gestao");
+  const options = paymentUsers
+    .map((user) => {
+      const login = user.email || user.phoneNumber || user.id;
+      const name = user.name ? ` - ${user.name}` : "";
+      return `<option value="${escapeHtml(user.id)}">${escapeHtml(login)}${escapeHtml(name)}</option>`;
+    })
+    .join("");
+
+  paymentUser.innerHTML = `<option value="">Aluno avulso</option>${options}`;
 }
 
 async function loadUsers() {
@@ -1010,6 +1040,7 @@ async function loadPayments() {
     throw new Error(data.message || "Não foi possível carregar os pedidos.");
   }
 
+  renderPaymentUsers(data.users || []);
   renderPayments(data.payments || []);
   setFeedback("Pedidos atualizados.", "success");
 }
@@ -1136,6 +1167,77 @@ async function updatePaymentStatus(select) {
     setFeedback(error.message, "error");
   } finally {
     select.disabled = false;
+  }
+}
+
+async function createPaymentEntry(form) {
+  const submitButton = form.querySelector("button[type='submit']");
+  const formData = new FormData(form);
+
+  try {
+    submitButton.disabled = true;
+    setFeedback("Adicionando linha na planilha...", "success");
+    const response = await fetch("/api/gestao/payments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userId: formData.get("userId"),
+        userName: formData.get("userName"),
+        lessonDate: formData.get("lessonDate"),
+        duration: formData.get("duration"),
+        classValue: formData.get("classValue"),
+        materia: formData.get("materia"),
+        plano: formData.get("plano"),
+        status: formData.get("status"),
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.message || "Não foi possível adicionar a linha.");
+    }
+
+    form.reset();
+    setFeedback(data.message, "success");
+    await loadPayments();
+  } catch (error) {
+    setFeedback(error.message, "error");
+  } finally {
+    submitButton.disabled = false;
+  }
+}
+
+async function updatePaymentRow(button) {
+  const row = button.closest("tr");
+  const id = button.dataset.paymentId;
+  const payload = Object.fromEntries(
+    [...row.querySelectorAll("[name]")].map((field) => [field.name, field.value])
+  );
+
+  try {
+    button.disabled = true;
+    setFeedback(`Salvando linha #${id}...`, "success");
+    const response = await fetch(`/api/gestao/payments/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.message || "Não foi possível salvar a linha.");
+    }
+
+    setFeedback(data.message, "success");
+    await loadPayments();
+  } catch (error) {
+    setFeedback(error.message, "error");
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -1711,6 +1813,18 @@ menuToggle.addEventListener("click", () => {
 
 moduleLinks.forEach((link) => {
   link.addEventListener("click", () => setModule(link.dataset.module));
+});
+
+paymentEntryForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  createPaymentEntry(paymentEntryForm);
+});
+
+paymentUser.addEventListener("change", () => {
+  const user = paymentUsers.find((item) => item.id === paymentUser.value);
+  if (user) {
+    paymentEntryForm.elements.userName.value = user.name || "";
+  }
 });
 
 pdfForm.addEventListener("submit", (event) => {
