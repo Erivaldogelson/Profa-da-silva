@@ -77,7 +77,7 @@
         <div class="gestao-toolbar mb-3">
           <select id="status-filter" class="form-select gestao-filter" aria-label="Filtrar por status de pagamento">
             <option value="">Todos os pedidos</option>
-            <option value="pendente">Pendente</option>
+            <option value="pendente">Por pagar</option>
             <option value="em_atendimento">Em atendimento</option>
             <option value="pago">Pago</option>
             <option value="cancelado">Cancelado</option>
@@ -97,67 +97,17 @@
 
         <div id="gestao-feedback" class="gestao-feedback" role="status" aria-live="polite"></div>
 
-        <form id="payment-entry-form" class="payment-entry-form mb-4">
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Nome do aluno</label>
-              <select id="payment-user" class="form-select" name="userId">
-                <option value="">Aluno avulso</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Nome avulso</label>
-              <input class="form-control" type="text" name="userName" placeholder="Ex.: Lídia Nataly Santos Sousa">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Data da aula</label>
-              <input class="form-control" type="date" name="lessonDate">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Duração</label>
-              <input class="form-control" type="text" name="duration" placeholder="Ex.: 1h">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Valor da aula</label>
-              <input class="form-control" type="number" min="0" step="0.01" name="classValue" placeholder="39.99">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Disciplina</label>
-              <input class="form-control" type="text" name="materia" placeholder="Ex.: Espanhol">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Status do pagamento</label>
-              <select class="form-select" name="status">
-                <option value="pendente">Por pagar</option>
-                <option value="em_atendimento">Em atendimento</option>
-                <option value="pago">Pago</option>
-                <option value="cancelado">Cancelado</option>
-              </select>
-            </div>
-            <div class="col-md-9">
-              <label class="form-label">Plano ou observação</label>
-              <input class="form-control" type="text" name="plano" placeholder="Ex.: Aula avulsa">
-            </div>
-            <div class="col-md-3 d-flex align-items-end">
-              <button class="btn btn-dark rounded-pill w-100" type="submit">
-                <i class="bi bi-plus-lg"></i>
-                Adicionar linha
-              </button>
-            </div>
-          </div>
-        </form>
-
         <div class="table-responsive">
-          <table id="payments-table-view" class="table align-middle payment-sheet">
+          <table id="payments-table-view" class="table align-middle">
             <thead>
               <tr>
-                <th>Nome do aluno</th>
-                <th>Data da aula</th>
-                <th>Duração</th>
-                <th>Valor da aula</th>
-                <th>Matéria</th>
+                <th>#</th>
+                <th>Aluno</th>
+                <th>Contato</th>
                 <th>Plano</th>
-                <th>Status do pagamento</th>
+                <th>Fechamento</th>
+                <th>Status</th>
+                <th>Data</th>
                 <th>Ação</th>
               </tr>
             </thead>

@@ -295,48 +295,6 @@ body {
   border-radius: 999px;
 }
 
-.payment-entry-form {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 16px;
-  background: #fbfaf7;
-}
-
-.payment-sheet {
-  min-width: 1180px;
-}
-
-.payment-sheet th {
-  color: #6f675a;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.payment-cell {
-  min-width: 130px;
-  border: 1px solid transparent;
-  background: transparent;
-  box-shadow: none;
-}
-
-.payment-cell:focus {
-  border-color: var(--beige);
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(230, 216, 184, 0.25);
-}
-
-html[data-theme="dark"] .payment-entry-form {
-  background: #1b1917;
-}
-
-html[data-theme="dark"] .payment-cell {
-  color: var(--ink);
-}
-
-html[data-theme="dark"] .payment-cell:focus {
-  background: #211f1c;
-}
-
 .gestao-feedback {
   min-height: 26px;
   font-weight: 600;
